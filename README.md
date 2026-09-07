@@ -138,3 +138,7 @@ Every plugin file must define a `register(registry, config)` function. Use
 ```bash
 pytest
 ```
+
+## License
+
+[MIT](LICENSE)
