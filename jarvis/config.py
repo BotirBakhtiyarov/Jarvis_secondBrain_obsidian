@@ -1,0 +1,73 @@
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEFAULT_BASE_URL = "https://api.deepseek.com"
+DEFAULT_MODEL = "deepseek-chat"
+
+# USD per 1M tokens (DeepSeek, taxminiy — .env orqali o'zgartiriladi)
+DEFAULT_INPUT_PRICE = 0.27
+DEFAULT_OUTPUT_PRICE = 1.10
+
+
+@dataclass
+class Config:
+    api_key: str
+    base_url: str
+    model: str
+    obsidian_vault: Path
+    workspace: Path
+    history_path: Path
+    max_history: int
+    input_price: float
+    output_price: float
+
+
+def load_config(overrides: dict | None = None) -> Config:
+    """.env faylidan konfiguratsiyani yuklaydi.
+
+    CLI flag'lar (`overrides`) .env dan ustun turadi. Workspace ko'rsatilmagan
+    bo'lsa, terminal ochilgan joriy katalog ishlatiladi.
+    """
+
+    overrides = overrides or {}
+
+    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+
+    vault_raw = overrides.get("vault") or os.getenv("OBSIDIAN_VAULT", "")
+    if not vault_raw:
+        raise ValueError(
+            "OBSIDIAN_VAULT not found in .env. "
+            "Example: OBSIDIAN_VAULT=/home/user/SecondBrain"
+        )
+
+    workspace_raw = (
+        overrides.get("workspace")
+        or os.getenv("WORKSPACE")
+        or str(Path.cwd())
+    )
+
+    history_raw = os.getenv("JARVIS_HISTORY") or str(
+        Path.home() / ".jarvis" / "history.json"
+    )
+
+    return Config(
+        api_key=api_key,
+        base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
+        model=overrides.get("model")
+        or os.getenv("DEEPSEEK_MODEL", DEFAULT_MODEL),
+        obsidian_vault=Path(vault_raw).expanduser().resolve(),
+        workspace=Path(workspace_raw).expanduser().resolve(),
+        history_path=Path(history_raw).expanduser().resolve(),
+        max_history=int(os.getenv("JARVIS_MAX_HISTORY", "50")),
+        input_price=float(
+            os.getenv("DEEPSEEK_INPUT_PRICE", DEFAULT_INPUT_PRICE)
+        ),
+        output_price=float(
+            os.getenv("DEEPSEEK_OUTPUT_PRICE", DEFAULT_OUTPUT_PRICE)
+        ),
+    )
