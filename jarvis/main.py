@@ -28,7 +28,7 @@ from jarvis.prompts import SYSTEM_PROMPT
 from jarvis.tools import ToolRegistry
 from jarvis.ui import console
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 

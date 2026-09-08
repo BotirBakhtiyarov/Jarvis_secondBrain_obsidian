@@ -12,6 +12,7 @@ def register(registry, config):
     registry.register(SaveMemoryTool(vault))
     registry.register(DailyNoteTool(vault))
     registry.register(TriageInboxTool(vault))
+    registry.register(ReindexTool(vault))
 
 
 class SaveMemoryTool(Tool):
@@ -161,4 +162,40 @@ class TriageInboxTool(Tool):
             "action": "triage",
             "moved": moved,
             "to": dest_dir,
+        }
+
+
+class ReindexTool(Tool):
+    def __init__(self, vault: Vault):
+        super().__init__(
+            name="reindex",
+            description=(
+                "Build (or rebuild) the semantic search index over all notes. "
+                "Run this once before semantic search works; afterwards "
+                "`search_notes` blends keyword + semantic results."
+            ),
+        )
+        self.vault = vault
+
+    def execute(self):
+        from jarvis.semantic import SemanticIndex
+
+        if not SemanticIndex.is_available():
+            return {
+                "error": (
+                    "fastembed is not installed. "
+                    "Run: pip install -e '.[semantic]'"
+                )
+            }
+
+        notes = self.vault.iter_notes()
+        try:
+            SemanticIndex(self.vault.root).build(notes)
+        except Exception as exc:  # noqa: BLE001
+            return {"error": f"semantic index build failed: {exc}"}
+
+        return {
+            "success": True,
+            "action": "reindex",
+            "notes": len(notes),
         }

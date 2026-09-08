@@ -82,7 +82,8 @@ jarvis --model deepseek-chat --workspace /path/to/projects
 - **Auto-memory**: on exit, JARVIS summarizes the session and extracts
   important facts into Obsidian (`JARVIS_AUTO_MEMORY=0` to disable).
 - **Semantic search**: optional vector search (fastembed) blended with
-  keyword search — `pip install -e ".[semantic]"`.
+  keyword search — `pip install -e ".[semantic]"`, then run `reindex` once.
+  Downloads a small embedding model (~90 MB) from HuggingFace on first use.
 
 ## Adding a new tool (e.g. Telegram bot, Gmail)
 
@@ -132,6 +133,7 @@ Every plugin file must define a `register(registry, config)` function. Use
 | `save_memory` | store important information — JARVIS decides what to save and what to skip |
 | `daily_note` | get or create today's daily note (linked to yesterday's) |
 | `triage_inbox` | archive all Inbox notes into `Archive/YYYY/MM/` |
+| `reindex` | build the semantic search index (run once) |
 
 ### Project work (workspace)
 

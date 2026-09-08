@@ -36,7 +36,19 @@ class Vault:
             for p in self.root.rglob("*.md")
             if ".obsidian" not in p.parts
             and ".jarvis_backups" not in p.parts
+            and ".jarvis_index" not in p.parts
         ]
+
+    def iter_notes(self) -> list[tuple[str, str]]:
+        """Barcha notalarni (path, content) juftliklari sifatida qaytaradi."""
+
+        out = []
+        for note in self.get_all_notes():
+            try:
+                out.append((str(note.relative_to(self.root)), self._read(note)))
+            except OSError:
+                continue
+        return out
 
     def _read(self, note: Path) -> str:
         return note.read_text(encoding="utf-8", errors="ignore")
@@ -122,13 +134,9 @@ class Vault:
         try:
             from jarvis.semantic import SemanticIndex
 
-            if SemanticIndex.is_available():
-                notes = [
-                    (str(p.relative_to(self.root)), self._read(p))
-                    for p in self.get_all_notes()
-                ]
-                index = SemanticIndex(self.root)
-                for path, sim in index.search(notes, query, limit=limit * 3):
+            index = SemanticIndex(self.root)
+            if index.has_index():
+                for path, sim in index.search(query, limit=limit * 3):
                     if sim > 0.0:
                         semantic[path] = sim
         except Exception:  # noqa: BLE001

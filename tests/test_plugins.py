@@ -24,3 +24,4 @@ def test_plugin_discovery_registers_tools(tmp_path):
     assert "get_time" in names
     assert "daily_note" in names
     assert "triage_inbox" in names
+    assert "reindex" in names

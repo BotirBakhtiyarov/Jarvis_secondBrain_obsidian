@@ -1,6 +1,6 @@
 [project]
 name = "jarvis-second-brain"
-version = "0.7.0"
+version = "0.7.1"
 description = "Personal AI Second Brain + Coding Assistant powered by DeepSeek and Obsidian"
 readme = "README.md"
 license = "MIT"
