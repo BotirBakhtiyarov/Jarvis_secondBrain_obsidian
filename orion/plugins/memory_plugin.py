@@ -1,8 +1,8 @@
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from jarvis.obsidian import Vault
-from jarvis.tools import Tool
+from orion.obsidian import Vault
+from orion.tools import Tool
 
 _INVALID_CHARS = set('/\\:*?"<>|')
 
@@ -81,7 +81,13 @@ class SaveMemoryTool(Tool):
             for rel in related:
                 body += f"- {self.vault.note_link(rel)}\n"
 
-        return self.vault.create(note_path, body)
+        result = self.vault.create(note_path, body)
+
+        # Ikki tomonlama bog'lanish: related notalarga backlink qo'sh.
+        if result.get("success") and related:
+            result["backlinks"] = self.vault.add_backlinks(note_path, related)
+
+        return result
 
     def _dated(self, content: str) -> str:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -172,13 +178,22 @@ class ReindexTool(Tool):
             description=(
                 "Build (or rebuild) the semantic search index over all notes. "
                 "Run this once before semantic search works; afterwards "
-                "`search_notes` blends keyword + semantic results."
+                "`search_notes` blends keyword + semantic results. The first "
+                "run downloads a small embedding model (~90 MB) from "
+                "HuggingFace — later runs use the local cache."
             ),
         )
         self.vault = vault
 
     def execute(self):
-        from jarvis.semantic import SemanticIndex
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+        )
+
+        from orion.semantic import SemanticIndex
 
         if not SemanticIndex.is_available():
             return {
@@ -189,8 +204,25 @@ class ReindexTool(Tool):
             }
 
         notes = self.vault.iter_notes()
+        index = SemanticIndex(self.vault.root)
+
         try:
-            SemanticIndex(self.vault.root).build(notes)
+            if not notes:
+                index.build(notes)
+                return {"success": True, "action": "reindex", "notes": 0}
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[cyan]reindex[/cyan]"),
+                BarColumn(),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            ) as progress:
+                task = progress.add_task("embedding", total=len(notes))
+
+                def cb(done, total):
+                    progress.update(task, completed=done, total=total)
+
+                index.build(notes, progress=cb)
         except Exception as exc:  # noqa: BLE001
             return {"error": f"semantic index build failed: {exc}"}
 

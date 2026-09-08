@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def load_plugins(registry, config) -> list[str]:
-    """`jarvis/plugins/` ichidagi barcha plugin modullarni yuklaydi.
+    """`orion/plugins/` ichidagi barcha plugin modullarni yuklaydi.
 
     Har bir plugin faylida quyidagi imzoga ega funksiya bo'lishi kerak::
 

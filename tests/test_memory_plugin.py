@@ -1,5 +1,5 @@
-from jarvis.obsidian import Vault
-from jarvis.plugins.memory_plugin import (
+from orion.obsidian import Vault
+from orion.plugins.memory_plugin import (
     DailyNoteTool,
     SaveMemoryTool,
     TriageInboxTool,
@@ -89,3 +89,33 @@ def test_triage_inbox_moves_to_archive(tmp_path):
 
     moved_names = {p.split("/")[-1] for p in res["moved"]}
     assert moved_names == {"a.md", "b.md"}
+
+
+def test_add_backlinks_two_way_and_idempotent(tmp_path):
+    vault = _vault(tmp_path)
+    vault.create("Projects/Apollo.md", "Apollo project.\n")
+
+    added = vault.add_backlinks("Inbox/New idea.md", ["Projects/Apollo.md"])
+    assert added == ["Projects/Apollo.md"]
+
+    content = vault.read("Projects/Apollo.md")["content"]
+    assert "## Backlinks" in content
+    assert "[[New idea]]" in content
+
+    # Ikkinchi marta qo'shilmaydi
+    assert vault.add_backlinks("Inbox/New idea.md", ["Projects/Apollo.md"]) == []
+
+
+def test_save_memory_adds_backlinks_to_related(tmp_path):
+    vault = _vault(tmp_path)
+    vault.create("Projects/Apollo.md", "Apollo project: rocket roadmap and budget.\n")
+
+    tool = SaveMemoryTool(vault)
+    res = tool.execute("Apollo budget notes", "Keep budget under 1M.", folder="Inbox")
+
+    assert res["success"] is True
+    assert res.get("backlinks")
+
+    related_content = vault.read("Projects/Apollo.md")["content"]
+    assert "## Backlinks" in related_content
+    assert "[[Apollo budget notes]]" in related_content

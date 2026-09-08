@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from jarvis.tools import Tool
+from orion.tools import Tool
 
 
 def register(registry, config):
@@ -218,7 +218,7 @@ class ScreenshotTool(Tool):
             name="screenshot",
             description=(
                 "Capture a screenshot of the screen and save it to a file "
-                "(default: ~/jarvis_screenshot_TIMESTAMP.png)."
+                "(default: ~/orion_screenshot_TIMESTAMP.png)."
             ),
             parameters={
                 "path": {
@@ -232,7 +232,7 @@ class ScreenshotTool(Tool):
         if not path:
             path = str(
                 Path.home()
-                / f"jarvis_screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
+                / f"orion_screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
             )
 
         if sys.platform == "darwin":

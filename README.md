@@ -1,4 +1,4 @@
-# JARVIS — Second Brain + Coding Assistant
+# ORION — Operational Reasoning, Intelligence & Orchestration Network
 
 A personal AI assistant powered by DeepSeek and Obsidian. It decides on its
 own which parts of your conversations are worth saving to Obsidian, and it
@@ -7,8 +7,27 @@ Claude Code-style terminal interface.
 
 ## Installation
 
+With uv (recommended — installs everything including tests, semantic search
+and MCP):
+
+```bash
+uv sync
+uv run orion
+```
+
+Or with pip:
+
 ```bash
 pip install -e ".[dev]"
+```
+
+To install ORION globally so you can run `orion` from any directory:
+
+```bash
+cd ~/orion            # or wherever the project lives
+uv tool install --editable .
+# to also enable semantic search and MCP in the global install:
+uv tool install --editable --with "fastembed" --with "mcp<2" .
 ```
 
 Create a `.env` file (copy from `.env.example`):
@@ -20,21 +39,29 @@ OBSIDIAN_VAULT=/home/you/Work/SecondBrain
 # WORKSPACE=/home/you/Projects
 ```
 
-**Workspace** is the root folder JARVIS uses to work with your projects. By
+You can also run `orion config --init` to generate the `.env` file.
+ORION reads `.env` from the current directory first, then from
+`~/.orion/.env` — put your keys in `~/.orion/.env` when using the global
+install.
+
+**Workspace** is the root folder ORION uses to work with your projects. By
 default it is detected automatically as the directory your terminal is in.
-For example, `cd ~/my-project && jarvis` uses `~/my-project` as the
+For example, `cd ~/my-project && orion` uses `~/my-project` as the
 workspace. To use a different location, set `WORKSPACE=...` in `.env` or
-pass the `jarvis --workspace /path` flag.
+pass the `orion --workspace /path` flag.
 
 ## Usage
 
 ```bash
-jarvis                 # interactive session
-jarvis -c              # continue the most recent session
-jarvis -r <id>         # resume a session by ID
-jarvis -p "query"      # non-interactive (prints the answer and exits)
-jarvis "query"         # interactive session with an initial prompt
-jarvis --model deepseek-chat --workspace /path/to/projects
+orion                 # interactive session
+orion -c              # continue the most recent session
+orion -r <id>         # resume a session by ID
+orion -p "query"      # non-interactive (prints the answer and exits)
+orion "query"         # interactive session with an initial prompt
+orion --model deepseek-chat --workspace /path/to/projects
+orion config          # show configuration
+orion config --init   # create .env from .env.example
+orion config --edit   # open .env in $EDITOR
 ```
 
 ## Commands (Claude Code style)
@@ -50,48 +77,59 @@ jarvis --model deepseek-chat --workspace /path/to/projects
 | `/compact` | summarize the conversation to save context |
 | `/add-dir <path>` | switch the workspace directory |
 | `/review` | show git status/diff in the workspace |
-| `/init` | create a JARVIS.md project instructions file |
+| `/init` | create an ORION.md project instructions file |
+| `/config [init\|edit]` | view or initialize configuration |
 | `/permissions` | view or change the permission mode |
 | `/resume [id]` | list sessions or resume one |
 | `/tools` | list available tools with descriptions |
-| `/exit` | exit JARVIS |
+| `/exit` | exit ORION |
 
 - `@file` — include a file's content in your prompt (e.g. `@src/app.py`).
 - `↑/↓` — prompt history.
-- Commands (`run_command`) ask for permission before running; disable with
+- Sensitive commands (`run_command`, `git_commit`, `git_create_pr`, ...)
+  ask for permission before running; disable with
   `--dangerously-skip-permissions` or `/permissions bypass`.
-- `JARVIS.md` is read automatically at the start of each session (like
+- `ORION.md` is read automatically at the start of each session (like
   `CLAUDE.md` in Claude Code).
 
 ## Features
 
 - Obsidian memory: search, read, create, update, append.
-- **Smart memory**: JARVIS decides what to save to Obsidian and what to
+- **Smart memory**: ORION decides what to save to Obsidian and what to
   skip, via the `save_memory` tool.
+- **Agent mode**: for multi-step tasks ORION records a plan (via the `plan`
+  tool), executes step by step, and shows progress in the terminal.
 - Project work: `list_files`, `read_file`, `write_file`, `edit_file`,
   `run_command`.
-- Streaming responses and session persistence (`jarvis -c` to resume).
-- Automatic backups on updates (`.jarvis_backups/`).
+- **Git integration**: `git_status`, `git_diff`, `git_log`, `git_commit`,
+  `git_create_pr`.
+- **Web search**: `web_search` via Tavily (set `TAVILY_API_KEY`) or
+  DuckDuckGo fallback (no key needed).
+- Streaming responses and session persistence (`orion -c` to resume).
+- Automatic backups on updates (`.orion_backups/`).
 - Token and cost tracking (`/cost`).
-- **Pretty notes**: `save_memory` adds YAML frontmatter, tags and `[[wikilinks]]`
-  to related notes, so the Obsidian graph view stays tidy.
+- **Pretty notes**: `save_memory` adds YAML frontmatter, tags and
+  `[[wikilinks]]` to related notes, so the Obsidian graph view stays tidy.
+- **Backlinks**: `link_notes` (and `save_memory`) add two-way links —
+  related notes get a `## Backlinks` section pointing back.
 - **Terminal system tools**: open URLs/apps, notifications, clipboard, screenshots.
 - **MCP support**: connect any MCP server (Gmail, Slack, ...) via config.
 - **Daily notes + Inbox triage**: `daily_note` creates/links daily notes,
   `triage_inbox` archives the Inbox into `Archive/YYYY/MM/`.
-- **Auto-memory**: on exit, JARVIS summarizes the session and extracts
-  important facts into Obsidian (`JARVIS_AUTO_MEMORY=0` to disable).
+- **Auto-memory**: on exit, ORION summarizes the session and extracts
+  important facts into Obsidian (`ORION_AUTO_MEMORY=0` to disable).
 - **Semantic search**: optional vector search (fastembed) blended with
   keyword search — `pip install -e ".[semantic]"`, then run `reindex` once.
-  Downloads a small embedding model (~90 MB) from HuggingFace on first use.
+  Search never downloads models on its own; the model is only fetched during
+  an explicit `reindex`, which prevents hangs.
 
 ## Adding a new tool (e.g. Telegram bot, Gmail)
 
-Drop a new `.py` file into `jarvis/plugins/` — it is loaded automatically.
+Drop a new `.py` file into `orion/plugins/` — it is loaded automatically.
 The shape is:
 
 ```python
-from jarvis.tools import Tool
+from orion.tools import Tool
 
 
 def register(registry, config):
@@ -130,7 +168,8 @@ Every plugin file must define a `register(registry, config)` function. Use
 | `update_note` | update an existing note (with automatic backup) |
 | `append_to_note` | append new information to an existing note |
 | `list_notes` | show the vault structure (list of notes) |
-| `save_memory` | store important information — JARVIS decides what to save and what to skip |
+| `save_memory` | store important information — ORION decides what to save and what to skip |
+| `link_notes` | add two-way `[[wikilinks]]` between related notes |
 | `daily_note` | get or create today's daily note (linked to yesterday's) |
 | `triage_inbox` | archive all Inbox notes into `Archive/YYYY/MM/` |
 | `reindex` | build the semantic search index (run once) |
@@ -144,6 +183,28 @@ Every plugin file must define a `register(registry, config)` function. Use
 | `write_file` | create a file or overwrite an existing one |
 | `edit_file` | edit a file by replacing an exact text snippet |
 | `run_command` | run tests, builds, git and other shell commands |
+
+### Git
+
+| Tool | What it is for |
+|---|---|
+| `git_status` | show working tree status and current branch |
+| `git_diff` | show unstaged (or staged) changes |
+| `git_log` | show recent commit history |
+| `git_commit` | stage files and commit with a message (asks permission) |
+| `git_create_pr` | create a pull request via the `gh` CLI (asks permission) |
+
+### Web
+
+| Tool | What it is for |
+|---|---|
+| `web_search` | search the web for up-to-date information (Tavily or DuckDuckGo) |
+
+### Agent
+
+| Tool | What it is for |
+|---|---|
+| `plan` | create/update a step-by-step plan for a complex task |
 
 ### System (terminal)
 
@@ -160,7 +221,7 @@ Every plugin file must define a `register(registry, config)` function. Use
 
 ## MCP support
 
-JARVIS can connect to MCP (Model Context Protocol) servers — the same
+ORION can connect to MCP (Model Context Protocol) servers — the same
 standard Claude Code uses — to reach external services like Gmail, Slack,
 or any of the hundreds of available MCP servers.
 
@@ -168,7 +229,7 @@ or any of the hundreds of available MCP servers.
 pip install -e ".[mcp]"
 ```
 
-Create `~/.jarvis/mcp.json`:
+Create `~/.orion/mcp.json`:
 
 ```json
 {
@@ -179,8 +240,17 @@ Create `~/.jarvis/mcp.json`:
 }
 ```
 
-Each MCP tool appears as `mcp__<server>__<tool>` in JARVIS. If `mcp` is not
-installed or the config is missing, JARVIS silently runs without it.
+Each MCP tool appears as `mcp__<server>__<tool>` in ORION. If `mcp` is not
+installed or the config is missing, ORION silently runs without it.
+
+## Roadmap
+
+- Obsidian Local REST API transport (alternative to direct file access).
+- Web UI / 3D graph (Obsidian-style graph view).
+- Autonomous bots (e.g. end-of-day vault tidy).
+- Telegram / Discord bot mode.
+- Self-updating: suggest new tools and prompts.
+- RAG over code + notes together.
 
 ## Tests
 

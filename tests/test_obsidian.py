@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.obsidian import Vault
+from orion.obsidian import Vault
 
 
 @pytest.fixture

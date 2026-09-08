@@ -1,5 +1,5 @@
-from jarvis.obsidian import Vault
-from jarvis.tools import Tool
+from orion.obsidian import Vault
+from orion.tools import Tool
 
 
 def register(registry, config):
@@ -10,6 +10,7 @@ def register(registry, config):
     registry.register(UpdateNoteTool(vault))
     registry.register(AppendNoteTool(vault))
     registry.register(ListNotesTool(vault))
+    registry.register(LinkNotesTool(vault))
 
 
 class SearchNotesTool(Tool):
@@ -38,7 +39,19 @@ class SearchNotesTool(Tool):
         self.vault = vault
 
     def execute(self, query, limit=10):
-        return {"results": self.vault.search(query, limit)}
+        out = {"results": self.vault.search(query, limit)}
+        try:
+            from orion.semantic import SemanticIndex
+
+            status = SemanticIndex(self.vault.root).status()
+            if status["available"] and not status["has_index"]:
+                out["hint"] = (
+                    "Semantic index not built yet — run the `reindex` tool once "
+                    "to enable semantic search."
+                )
+        except Exception:  # noqa: BLE001
+            pass
+        return out
 
 
 class ReadNoteTool(Tool):
@@ -151,3 +164,38 @@ class ListNotesTool(Tool):
 
     def execute(self, folder=""):
         return self.vault.list_notes(folder)
+
+
+class LinkNotesTool(Tool):
+    def __init__(self, vault: Vault):
+        super().__init__(
+            name="link_notes",
+            description=(
+                "Add two-way [[wikilinks]] between notes. Provide the source "
+                "note and the related target notes; each target gets a "
+                "`## Backlinks` section linking back to the source. "
+                "Deduplicated automatically — existing links are skipped."
+            ),
+            parameters={
+                "source_path": {
+                    "type": "string",
+                    "description": "The note that contains the outgoing links",
+                },
+                "target_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Related note paths to backlink to the source",
+                },
+            },
+            required=["source_path", "target_paths"],
+        )
+        self.vault = vault
+
+    def execute(self, source_path, target_paths):
+        added = self.vault.add_backlinks(source_path, target_paths)
+        return {
+            "success": True,
+            "action": "linked",
+            "source": source_path,
+            "backlinks": added,
+        }

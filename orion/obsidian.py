@@ -5,6 +5,13 @@ from pathlib import Path
 MAX_READ_CHARS = 30000
 MAX_EXCERPT_CHARS = 1500
 
+# Vault ichidagi ichki papkalar (indeks, backup, Obsidian konfigi) — bu
+# papkalar notalar ro'yxatidan va qidiruvdan chetlashtiriladi.
+IGNORED_DIRS = {
+    ".obsidian", ".orion_backups", ".orion_index",
+    ".jarvis_backups", ".jarvis_index",
+}
+
 
 class Vault:
     """Obsidian Vault ustidagi barcha amallar.
@@ -34,9 +41,7 @@ class Vault:
         return [
             p
             for p in self.root.rglob("*.md")
-            if ".obsidian" not in p.parts
-            and ".jarvis_backups" not in p.parts
-            and ".jarvis_index" not in p.parts
+            if not (IGNORED_DIRS & set(p.parts))
         ]
 
     def iter_notes(self) -> list[tuple[str, str]]:
@@ -132,7 +137,7 @@ class Vault:
 
         semantic: dict[str, float] = {}
         try:
-            from jarvis.semantic import SemanticIndex
+            from orion.semantic import SemanticIndex
 
             index = SemanticIndex(self.root)
             if index.has_index():
@@ -267,7 +272,7 @@ class Vault:
                 "path": note_path,
             }
 
-        backup_dir = self.root / ".jarvis_backups"
+        backup_dir = self.root / ".orion_backups"
         backup_dir.mkdir(exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -328,7 +333,7 @@ class Vault:
 
         notes = []
         for note in base.rglob("*.md"):
-            if ".obsidian" in note.parts or ".jarvis_backups" in note.parts:
+            if IGNORED_DIRS & set(note.parts):
                 continue
             notes.append(str(note.relative_to(self.root)))
 
@@ -370,3 +375,41 @@ class Vault:
             for r in results
             if r["path"] != exclude
         ]
+
+    def add_backlinks(self, source_path: str, target_paths: list[str]) -> list[str]:
+        """Har bir target notaga manba nota uchun backlink qo'shadi.
+
+        Ikki tomonlama bog'lanish: manba nota `[[Target]]` ko'rinishida
+        bog'lagan bo'lsa, target nota `## Backlinks` bo'limida `[[Source]]`
+        qaytaradi. Idempotent — mavjud link qayta qo'shilmaydi.
+        """
+
+        source_stem = Path(source_path).stem
+        link = f"[[{source_stem}]]"
+        added: list[str] = []
+
+        for target in target_paths:
+            if not target or target == source_path:
+                continue
+            try:
+                tpath = self.safe_path(target)
+            except ValueError:
+                continue
+            if not tpath.exists():
+                continue
+
+            content = self._read(tpath)
+            if link in content:
+                continue
+
+            if "## Backlinks" in content:
+                new_content = content.replace(
+                    "## Backlinks", f"## Backlinks\n- {link}", 1
+                )
+            else:
+                new_content = content.rstrip() + f"\n\n## Backlinks\n- {link}\n"
+
+            tpath.write_text(new_content, encoding="utf-8")
+            added.append(target)
+
+        return added

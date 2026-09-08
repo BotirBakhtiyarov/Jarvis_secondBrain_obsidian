@@ -4,7 +4,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# Avval joriy katalogdagi .env (loyihaga xos), so'ng global ~/.orion/.env.
+# load_dotenv mavjud qiymatni ustidan yozmaydi, shuning uchun loyiha .env
+# ustun turadi, global fayl esa bo'sh joylarni to'ldiradi.
 load_dotenv()
+load_dotenv(Path.home() / ".orion" / ".env")
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-chat"
@@ -25,6 +29,7 @@ class Config:
     max_history: int
     input_price: float
     output_price: float
+    tavily_api_key: str = ""
 
 
 def load_config(overrides: dict | None = None) -> Config:
@@ -51,8 +56,8 @@ def load_config(overrides: dict | None = None) -> Config:
         or str(Path.cwd())
     )
 
-    history_raw = os.getenv("JARVIS_HISTORY") or str(
-        Path.home() / ".jarvis" / "history.json"
+    history_raw = os.getenv("ORION_HISTORY") or str(
+        Path.home() / ".orion" / "history.json"
     )
 
     return Config(
@@ -63,11 +68,12 @@ def load_config(overrides: dict | None = None) -> Config:
         obsidian_vault=Path(vault_raw).expanduser().resolve(),
         workspace=Path(workspace_raw).expanduser().resolve(),
         history_path=Path(history_raw).expanduser().resolve(),
-        max_history=int(os.getenv("JARVIS_MAX_HISTORY", "50")),
+        max_history=int(os.getenv("ORION_MAX_HISTORY", "50")),
         input_price=float(
             os.getenv("DEEPSEEK_INPUT_PRICE", DEFAULT_INPUT_PRICE)
         ),
         output_price=float(
             os.getenv("DEEPSEEK_OUTPUT_PRICE", DEFAULT_OUTPUT_PRICE)
         ),
+        tavily_api_key=os.getenv("TAVILY_API_KEY", "").strip(),
     )

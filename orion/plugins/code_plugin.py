@@ -1,7 +1,7 @@
 import subprocess
 
-from jarvis.tools import Tool
-from jarvis.workspace import Workspace
+from orion.tools import Tool
+from orion.workspace import Workspace
 
 
 def register(registry, config):

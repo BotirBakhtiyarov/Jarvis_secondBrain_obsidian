@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from jarvis.plugins import load_plugins
-from jarvis.tools import ToolRegistry
+from orion.plugins import load_plugins
+from orion.tools import ToolRegistry
 
 
 def test_plugin_discovery_registers_tools(tmp_path):
@@ -25,3 +25,10 @@ def test_plugin_discovery_registers_tools(tmp_path):
     assert "daily_note" in names
     assert "triage_inbox" in names
     assert "reindex" in names
+    assert "link_notes" in names
+    assert "web_search" in names
+    assert "git_status" in names
+    assert "git_diff" in names
+    assert "git_log" in names
+    assert "git_commit" in names
+    assert "git_create_pr" in names

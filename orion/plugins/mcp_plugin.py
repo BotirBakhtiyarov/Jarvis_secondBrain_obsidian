@@ -1,12 +1,12 @@
-from jarvis.mcp import MCPManager, load_mcp_config
-from jarvis.tools import Tool
+from orion.mcp import MCPManager, load_mcp_config
+from orion.tools import Tool
 
 
 def register(registry, config):
     """MCP serverlarini ulab, ularning tool'larini ro'yxatga oladi.
 
-    `mcp` paketi yoki `~/.jarvis/mcp.json` konfiguratsiyasi bo'lmasa,
-    jimgina o'tkazib yuboriladi (JARVIS boshqa tool'lar bilan ishlayveradi).
+    `mcp` paketi yoki `~/.orion/mcp.json` konfiguratsiyasi bo'lmasa,
+    jimgina o'tkazib yuboriladi (ORION boshqa tool'lar bilan ishlayveradi).
     """
 
     try:

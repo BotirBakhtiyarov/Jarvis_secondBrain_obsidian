@@ -4,7 +4,7 @@ import threading
 from concurrent.futures import Future
 from pathlib import Path
 
-DEFAULT_CONFIG_PATH = Path.home() / ".jarvis" / "mcp.json"
+DEFAULT_CONFIG_PATH = Path.home() / ".orion" / "mcp.json"
 
 
 def load_mcp_config(path: str | Path | None = None) -> dict:
@@ -35,7 +35,7 @@ def load_mcp_config(path: str | Path | None = None) -> dict:
 class MCPManager:
     """MCP (stdio) serverlarini boshqaradi.
 
-    MCP SDK asinxron, JARVIS esa sinxron. Barcha sessiyalar bitta uzoq
+    MCP SDK asinxron, ORION esa sinxron. Barcha sessiyalar bitta uzoq
     yashovchi asinxron task ("actor") ichida saqlanadi — bu anyio cancel
     scope'larining bir xil task'da kirish-chiqishini kafolatlaydi. Sinxron
     kod esa `asyncio.Queue` orqali so'rov yuborib javob kutadi.

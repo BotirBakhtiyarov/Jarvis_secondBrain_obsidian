@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Tool:
-    """JARVIS tool'ining asosiy klassi.
+    """ORION tool'ining asosiy klassi.
 
     Yangi tool yozish uchun shu klassdan meros olib, `execute` metodini
-    to'ldirish kifoya. Misolni `jarvis/plugins/` ichidagi fayllarda ko'ring.
+    to'ldirish kifoya. Misolni `orion/plugins/` ichidagi fayllarda ko'ring.
     """
 
     name: str

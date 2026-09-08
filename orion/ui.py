@@ -1,21 +1,29 @@
 import difflib
 import json
+import time
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
 console = Console()
+
+_BANNER = r"""[bold cyan]
+  ___  ____  ___ ___  _   _
+ / _ \|  _ \|_ _/ _ \| \ | |
+| | | | |_) || | | | |  \| |
+| |_| |  _ < | | |_| | |\  |
+ \___/|_| \_\___\___/|_| \_|
+[/bold cyan]"""
+
+_TAGLINE = "[dim]Operational Reasoning, Intelligence & Orchestration Network[/dim]"
 
 
 def print_banner(version: str):
     console.print()
-    console.print(
-        Panel.fit(
-            f"[bold cyan]JARVIS {version}[/bold cyan]  "
-            "[dim]Second Brain + Coding Assistant[/dim]",
-            border_style="cyan",
-        )
-    )
+    console.print(_BANNER)
+    console.print(Panel.fit(f"[bold cyan]ORION {version}[/bold cyan]  {_TAGLINE}", border_style="cyan"))
+    console.print()
 
 
 def print_tool_call(name: str, arguments: dict):
@@ -51,11 +59,24 @@ def print_tool_result(result: dict):
         return
 
     if "action" in result:
+        if result["action"] == "reindex":
+            console.print(
+                f"[green]  ✓ indexed {result.get('notes', '?')} notes[/green]"
+            )
+            return
+        if result["action"] == "commit":
+            console.print(
+                f"[green]  ✓ committed[/green] [dim]{result.get('message', '')[:80]}[/dim]"
+            )
+            return
         console.print(
             f"[green]  ✓ {result['action']}[/green] [dim]{result.get('path', '')}[/dim]"
         )
         if result.get("backup"):
             console.print(f"[dim]  backup: {result['backup']}[/dim]")
+        if result.get("backlinks"):
+            for b in result["backlinks"]:
+                console.print(f"[dim]  ⇄ {b}[/dim]")
         return
 
     if "results" in result:
@@ -64,9 +85,16 @@ def print_tool_result(result: dict):
             console.print("[dim]  (no results)[/dim]")
             return
         for r in results[:10]:
-            console.print(
-                f"  [bold]{r['path']}[/bold] [dim](score {r['score']})[/dim]"
-            )
+            if "title" in r:
+                console.print(f"  [bold]{r['title']}[/bold]")
+                console.print(f"    [cyan]{r.get('url', '')}[/cyan]")
+                snippet = (r.get("snippet") or "").replace("\n", " ")
+                if snippet:
+                    console.print(f"    [dim]{snippet[:160]}[/dim]")
+            else:
+                console.print(
+                    f"  [bold]{r['path']}[/bold] [dim](score {r['score']})[/dim]"
+                )
         return
 
     if "notes" in result and "total" in result:
@@ -120,3 +148,40 @@ def format_number(n: float) -> str:
     if n >= 1e3:
         return f"{n / 1e3:.1f}k"
     return f"{n:.0f}"
+
+
+_STATUS_ICONS = {
+    "done": "[green]✓ done[/green]",
+    "in_progress": "[yellow]▶ in progress[/yellow]",
+    "pending": "[dim]· pending[/dim]",
+}
+
+
+def print_plan(steps: list):
+    """Agent rejasini jadval ko'rinishida chiqaradi."""
+
+    if not steps:
+        return
+
+    table = Table(title="Plan", border_style="cyan", show_header=True)
+    table.add_column("#", justify="right", style="dim")
+    table.add_column("Step")
+    table.add_column("Status")
+
+    for i, step in enumerate(steps, 1):
+        status = step.get("status", "pending") if isinstance(step, dict) else "pending"
+        title = step.get("title", "") if isinstance(step, dict) else str(step)
+        table.add_row(str(i), title, _STATUS_ICONS.get(status, status))
+
+    console.print(table)
+
+
+def print_key_value(rows: list[tuple[str, str]], title: str = ""):
+    """Oddiy kalit-qiymat jadvali (masalan /status uchun)."""
+
+    table = Table(title=title or None, border_style="cyan", show_header=False)
+    table.add_column("Key", style="cyan", no_wrap=True)
+    table.add_column("Value")
+    for k, v in rows:
+        table.add_row(k, v)
+    console.print(table)

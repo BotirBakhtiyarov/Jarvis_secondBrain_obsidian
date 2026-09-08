@@ -1,4 +1,4 @@
-from jarvis.tools import Tool, ToolRegistry
+from orion.tools import Tool, ToolRegistry
 
 
 class EchoTool(Tool):

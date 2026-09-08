@@ -2,7 +2,7 @@ import pytest
 
 pytest.importorskip("fastembed")
 
-from jarvis.semantic import SemanticIndex  # noqa: E402
+from orion.semantic import SemanticIndex  # noqa: E402
 
 
 def test_semantic_ranking_and_cache_with_fake_embeddings(tmp_path, monkeypatch):
@@ -26,6 +26,10 @@ def test_semantic_ranking_and_cache_with_fake_embeddings(tmp_path, monkeypatch):
             return out
 
     monkeypatch.setattr(fastembed, "TextEmbedding", FakeEmbedding)
+    # Haqiqiy cache tekshiruvini bypass qilamiz — test soxta embedding ishlatadi.
+    monkeypatch.setattr(
+        SemanticIndex, "model_cached", staticmethod(lambda: True)
+    )
 
     notes = [
         ("cats.md", "Cats are mammals."),

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.workspace import Workspace
+from orion.workspace import Workspace
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ import pytest
 
 mcp = pytest.importorskip("mcp")
 
-from jarvis.mcp import MCPManager  # noqa: E402
+from orion.mcp import MCPManager  # noqa: E402
 
 SERVER_CODE = textwrap.dedent(
     """

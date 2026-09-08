@@ -13,36 +13,37 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 
-from jarvis import ui
-from jarvis.config import load_config
-from jarvis.llm import chat_once, chat_stream
-from jarvis.memory import (
+from orion import ui
+from orion.agent import Plan, PlanTool
+from orion.config import load_config
+from orion.llm import chat_once, chat_stream
+from orion.memory import (
     list_sessions,
     load_latest,
     load_session,
     save_session,
 )
-from jarvis.obsidian import Vault
-from jarvis.plugins import load_plugins
-from jarvis.prompts import SYSTEM_PROMPT
-from jarvis.tools import ToolRegistry
-from jarvis.ui import console
+from orion.obsidian import Vault
+from orion.plugins import load_plugins
+from orion.prompts import SYSTEM_PROMPT
+from orion.tools import ToolRegistry
+from orion.ui import console
 
-VERSION = "0.7.1"
+VERSION = "0.8.0"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 
-SENSITIVE_TOOLS = {"run_command", "screenshot"}
+SENSITIVE_TOOLS = {"run_command", "screenshot", "git_commit", "git_create_pr"}
 
 SLASH_COMMANDS = [
     "help", "clear", "model", "cost", "status", "memory", "compact",
     "add-dir", "review", "init", "permissions", "resume", "tools",
-    "exit", "version",
+    "config", "exit", "version",
 ]
 
-JARVIS_MD_TEMPLATE = """# JARVIS.md
+ORION_MD_TEMPLATE = """# ORION.md
 
-Bu fayl JARVIS uchun loyiha ko'rsatmalari. Sessiya boshida avtomatik o'qiladi.
+Bu fayl ORION uchun loyiha ko'rsatmalari. Sessiya boshida avtomatik o'qiladi.
 
 ## Loyiha haqida
 <!-- Loyihangiz nima ekanini qisqa tasvirlang -->
@@ -128,9 +129,24 @@ class JarvisCompleter(Completer):
 
 
 def parse_args(argv):
+    argv = list(argv)
+
+    # `orion config [--init|--edit]` sub-buyrug'i. Subparser ishlatmaymiz,
+    # chunki u `query` pozitsion argumentini egallab qo'yadi (`orion "savol"`
+    # ishlamay qoladi). Buning o'rniga birinchi argumentni qo'lda aniqlaymiz.
+    command = None
+    config_init = False
+    config_edit = False
+    if argv and argv[0] == "config":
+        command = "config"
+        argv = argv[1:]
+        config_init = "--init" in argv
+        config_edit = "--edit" in argv
+        argv = [a for a in argv if a not in ("--init", "--edit")]
+
     parser = argparse.ArgumentParser(
-        prog="jarvis",
-        description="JARVIS — Second Brain + Coding Assistant",
+        prog="orion",
+        description="ORION — Operational Reasoning, Intelligence & Orchestration Network",
     )
     parser.add_argument(
         "query", nargs="*", help="Boshlang'ich so'rov (interaktiv sessiya boshlaydi)"
@@ -156,7 +172,12 @@ def parse_args(argv):
         "--dangerously-skip-permissions", action="store_true",
         help="Buyruqlar uchun ruxsat so'rovlarini o'tkazib yuborish",
     )
-    return parser.parse_args(argv)
+
+    args = parser.parse_args(argv)
+    args.command = command
+    args.config_init = config_init
+    args.config_edit = config_edit
+    return args
 
 
 def build_system(config: "Config") -> str:
@@ -171,11 +192,11 @@ def build_system(config: "Config") -> str:
         "to obtain the precise current time instead of guessing.\n"
     )
 
-    jarvis_md = config.workspace / "JARVIS.md"
-    if jarvis_md.exists():
+    orion_md = config.workspace / "ORION.md"
+    if orion_md.exists():
         try:
-            content = jarvis_md.read_text(encoding="utf-8", errors="ignore")
-            system += "\n\n=== PROJECT INSTRUCTIONS (JARVIS.md) ===\n" + content
+            content = orion_md.read_text(encoding="utf-8", errors="ignore")
+            system += "\n\n=== PROJECT INSTRUCTIONS (ORION.md) ===\n" + content
         except OSError:
             pass
     return system
@@ -306,7 +327,13 @@ def run_turn(client, config, registry, messages, session, interactive=True):
 # ----------------------------------------------------------------------
 
 def cmd_help(ctx):
-    console.print("\n[bold cyan]Slash commands:[/bold cyan]")
+    from rich.table import Table
+
+    console.print()
+    table = Table(title="Slash commands", border_style="cyan")
+    table.add_column("Command", style="green", no_wrap=True)
+    table.add_column("What it does")
+
     for c, desc in [
         ("/help", "bu yordamni ko'rsatish"),
         ("/clear", "suhbat kontekstini tozalash"),
@@ -317,15 +344,18 @@ def cmd_help(ctx):
         ("/compact", "suhbatni qisqartirib kontekstni tejash"),
         ("/add-dir <path>", "workspace papkasini almashtirish"),
         ("/review", "workspace'dagi git status/diff"),
-        ("/init", "JARVIS.md ko'rsatmalar faylini yaratish"),
+        ("/init", "ORION.md ko'rsatmalar faylini yaratish"),
+        ("/config [init|edit]", "konfiguratsiyani ko'rish yoki sozlash"),
         ("/permissions [on|bypass]", "ruxsat rejimini ko'rish/o'zgartirish"),
         ("/resume [id]", "sessiyalarni ko'rish yoki davom ettirish"),
         ("/tools", "mavjud tool'larni tavsifi bilan ko'rsatish"),
         ("/exit", "chiqish"),
         ("/version", "versiyani ko'rsatish"),
     ]:
-        console.print(f"  [green]{c}[/green]  {desc}")
-    console.print("\n[dim]@file — fayl kontentini so'rovga qo'shish. ↑/↓ — tarix.[/dim]")
+        table.add_row(c, desc)
+
+    console.print(table)
+    console.print("[dim]@file — fayl kontentini so'rovga qo'shish. ↑/↓ — tarix.[/dim]\n")
 
 
 def cmd_clear(ctx):
@@ -361,11 +391,17 @@ def cmd_status(ctx):
     c = ctx["config"]
     r = ctx["registry"]
     mode = "bypass (skip prompts)" if ctx["session"].bypass else "ask for commands"
-    console.print(f"[cyan]Model:[/cyan] {c.model}")
-    console.print(f"[cyan]Vault:[/cyan] {c.obsidian_vault}")
-    console.print(f"[cyan]Workspace:[/cyan] {c.workspace}")
-    console.print(f"[cyan]Tools:[/cyan] {', '.join(r.names())}")
-    console.print(f"[cyan]Permission mode:[/cyan] {mode}")
+    ui.print_key_value(
+        [
+            ("Model", c.model),
+            ("Vault", str(c.obsidian_vault)),
+            ("Workspace", str(c.workspace)),
+            ("History", str(c.history_path)),
+            ("Tools", ", ".join(r.names())),
+            ("Permission mode", mode),
+        ],
+        title="Status",
+    )
 
 
 def cmd_memory(ctx):
@@ -448,11 +484,11 @@ def cmd_review(ctx):
 
 
 def cmd_init(ctx):
-    path = ctx["config"].workspace / "JARVIS.md"
+    path = ctx["config"].workspace / "ORION.md"
     if path.exists():
         console.print(f"[dim]Already exists: {path}[/dim]")
         return
-    path.write_text(JARVIS_MD_TEMPLATE, encoding="utf-8")
+    path.write_text(ORION_MD_TEMPLATE, encoding="utf-8")
     console.print(f"[green]✓ Created[/green] {path}")
 
 
@@ -490,13 +526,106 @@ def cmd_resume(ctx):
 
 
 def cmd_tools(ctx):
-    console.print("\n[bold cyan]Available tools:[/bold cyan]")
+    from rich.table import Table
+
+    console.print()
+    table = Table(title="Available tools", border_style="cyan")
+    table.add_column("Tool", style="green", no_wrap=True)
+    table.add_column("Description")
     for name, summary in ctx["registry"].describe():
-        console.print(f"  [green]{name}[/green] — {summary}")
+        table.add_row(name, summary)
+    console.print(table)
+    console.print()
 
 
 def cmd_version(ctx):
-    console.print(f"jarvis {VERSION}")
+    console.print(f"orion {VERSION}")
+
+
+# ----------------------------------------------------------------------
+# Config command (slash + `orion config` CLI)
+# ----------------------------------------------------------------------
+
+def _find_env_example() -> Path | None:
+    candidates = [
+        Path.cwd() / ".env.example",
+        Path(__file__).resolve().parent.parent / ".env.example",
+    ]
+    for cand in candidates:
+        if cand.exists():
+            return cand
+    return None
+
+
+def show_config_table(config):
+    ui.print_key_value(
+        [
+            ("Model", config.model),
+            ("Base URL", config.base_url),
+            ("Vault", str(config.obsidian_vault)),
+            ("Workspace", str(config.workspace)),
+            ("History", str(config.history_path)),
+            ("Max history", str(config.max_history)),
+            ("Input price", f"${config.input_price}/M"),
+            ("Output price", f"${config.output_price}/M"),
+            ("DeepSeek key", "set" if config.api_key else "MISSING"),
+            ("Tavily key", "set" if config.tavily_api_key else "not set"),
+        ],
+        title="Configuration",
+    )
+
+
+def run_config_init():
+    env = Path.cwd() / ".env"
+    if env.exists():
+        console.print(f"[yellow].env already exists:[/yellow] {env}")
+        return
+
+    template = _find_env_example()
+    if template is None:
+        console.print("[red]No .env.example found to copy from.[/red]")
+        return
+
+    env.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+    console.print(f"[green]✓ Created[/green] {env} [dim](from {template.name})[/dim]")
+    console.print("[dim]Fill in DEEPSEEK_API_KEY and OBSIDIAN_VAULT.[/dim]")
+
+
+def run_config_edit():
+    env = Path.cwd() / ".env"
+    if not env.exists():
+        console.print("[yellow].env not found. Run: orion config --init[/yellow]")
+        return
+
+    editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi"
+    console.print(f"[dim]Opening {env} with {editor}…[/dim]")
+    subprocess.call([editor, str(env)])
+
+
+def run_config_command(args):
+    if getattr(args, "config_init", False):
+        run_config_init()
+    elif getattr(args, "config_edit", False):
+        run_config_edit()
+    else:
+        try:
+            config = load_config({})
+        except ValueError:
+            config = None
+        if config is None:
+            console.print("[yellow]OBSIDIAN_VAULT is not set yet — run: orion config --init[/yellow]")
+            return
+        show_config_table(config)
+
+
+def cmd_config(ctx):
+    args = ctx["args"]
+    if args and args[0] in ("init", "--init"):
+        run_config_init()
+    elif args and args[0] in ("edit", "--edit"):
+        run_config_edit()
+    else:
+        show_config_table(ctx["config"])
 
 
 COMMAND_HANDLERS = {
@@ -513,6 +642,7 @@ COMMAND_HANDLERS = {
     "permissions": cmd_permissions,
     "resume": cmd_resume,
     "tools": cmd_tools,
+    "config": cmd_config,
     "version": cmd_version,
 }
 
@@ -599,7 +729,11 @@ def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.version:
-        print(f"jarvis {VERSION}")
+        print(f"orion {VERSION}")
+        return
+
+    if args.command == "config":
+        run_config_command(args)
         return
 
     try:
@@ -621,6 +755,9 @@ def main(argv=None):
     registry = ToolRegistry()
     load_plugins(registry, config)
 
+    plan = Plan()
+    registry.register(PlanTool(plan))
+
     session = Session(config)
     session.bypass = args.dangerously_skip_permissions
 
@@ -639,7 +776,7 @@ def main(argv=None):
         else:
             console.print("[dim]No previous session — starting fresh.[/dim]")
 
-    initial_query = " ".join(args.query).strip()
+    initial_query = " ".join(args.query or []).strip()
 
     if args.print and not initial_query and not sys.stdin.isatty():
         initial_query = sys.stdin.read().strip()
@@ -686,6 +823,8 @@ def main(argv=None):
             run_turn(client, config, ctx["registry"], messages, session, interactive=True)
         except Exception as err:  # noqa: BLE001
             console.print(f"\n[red]❌ Error: {err}[/red]")
+        if plan.steps:
+            ui.print_plan(plan.steps)
 
     try:
         while True:
@@ -720,10 +859,12 @@ def main(argv=None):
                 console.print(f"\n[red]❌ Error: {err}[/red]")
                 if messages and messages[-1].get("role") == "user":
                     messages.pop()
+            if plan.steps:
+                ui.print_plan(plan.steps)
 
     finally:
         save_session(config.history_path, messages)
-        if os.environ.get("JARVIS_AUTO_MEMORY", "1") != "0":
+        if os.environ.get("ORION_AUTO_MEMORY", "1") != "0":
             try:
                 saved = auto_memory(client, config, session, messages)
                 if saved:
@@ -733,7 +874,7 @@ def main(argv=None):
 
     console.print()
     print_cost_summary(session, config)
-    console.print("[cyan]JARVIS: Goodbye! 👋[/cyan]")
+    console.print("[cyan]ORION: Goodbye! 👋[/cyan]")
 
 
 if __name__ == "__main__":
