@@ -73,6 +73,10 @@ jarvis --model deepseek-chat --workspace /path/to/projects
 - Streaming responses and session persistence (`jarvis -c` to resume).
 - Automatic backups on updates (`.jarvis_backups/`).
 - Token and cost tracking (`/cost`).
+- **Pretty notes**: `save_memory` adds YAML frontmatter, tags and `[[wikilinks]]`
+  to related notes, so the Obsidian graph view stays tidy.
+- **Terminal system tools**: open URLs/apps, notifications, clipboard, screenshots.
+- **MCP support**: connect any MCP server (Gmail, Slack, ...) via config.
 
 ## Adding a new tool (e.g. Telegram bot, Gmail)
 
@@ -131,7 +135,42 @@ Every plugin file must define a `register(registry, config)` function. Use
 | `edit_file` | edit a file by replacing an exact text snippet |
 | `run_command` | run tests, builds, git and other shell commands |
 
+### System (terminal)
+
+| Tool | What it is for |
+|---|---|
+| `open_url` | open a URL in the default browser |
+| `open_app` | launch an application |
+| `notify` | send a desktop notification |
+| `clipboard_copy` | copy text to the clipboard |
+| `clipboard_read` | read text from the clipboard |
+| `screenshot` | capture the screen (asks for permission) |
+
 `/tools` shows this list with short descriptions in the terminal.
+
+## MCP support
+
+JARVIS can connect to MCP (Model Context Protocol) servers — the same
+standard Claude Code uses — to reach external services like Gmail, Slack,
+or any of the hundreds of available MCP servers.
+
+```bash
+pip install -e ".[mcp]"
+```
+
+Create `~/.jarvis/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "time": { "command": "uvx", "args": ["mcp-server-time"] },
+    "fetch": { "command": "uvx", "args": ["mcp-server-fetch"] }
+  }
+}
+```
+
+Each MCP tool appears as `mcp__<server>__<tool>` in JARVIS. If `mcp` is not
+installed or the config is missing, JARVIS silently runs without it.
 
 ## Tests
 

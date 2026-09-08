@@ -274,3 +274,32 @@ class Vault:
             "notes": notes[:limit],
             "truncated": total > limit,
         }
+
+    # ------------------------------------------------------------------
+    # Note design helpers (frontmatter + wikilinks)
+    # ------------------------------------------------------------------
+
+    def build_frontmatter(self, title: str, tags: list[str] | None = None) -> str:
+        """Obsidian YAML frontmatter — graph va qidiruvni chiroyli qiladi."""
+
+        created = datetime.now().strftime("%Y-%m-%d")
+        lines = ["---", f'title: "{title}"', f"created: {created}"]
+        if tags:
+            lines.append("tags: [" + ", ".join(tags) + "]")
+        lines.append("---")
+        return "\n".join(lines) + "\n\n"
+
+    def note_link(self, note_path: str) -> str:
+        """Obsidian wikilink — `[[Note Name]]`."""
+
+        return f"[[{Path(note_path).stem}]]"
+
+    def find_related(self, query: str, limit: int = 5, exclude: str = "") -> list[str]:
+        """So'rovga mos mavjud notalarning yo'llarini qaytaradi."""
+
+        results = self.search(query, limit=limit)
+        return [
+            r["path"]
+            for r in results
+            if r["path"] != exclude
+        ]

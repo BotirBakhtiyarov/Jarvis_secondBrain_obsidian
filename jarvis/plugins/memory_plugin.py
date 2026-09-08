@@ -1,3 +1,6 @@
+from datetime import datetime
+from pathlib import Path
+
 from jarvis.obsidian import Vault
 from jarvis.tools import Tool
 
@@ -54,13 +57,29 @@ class SaveMemoryTool(Tool):
 
         path = self.vault.safe_path(note_path)
         if path.exists():
-            return self.vault.append(note_path, content)
+            return self.vault.append(note_path, self._dated(content))
 
-        # Xuddi shu mavzuda mavjud nota bormi — dublikat oldini olish
+        # Xuddi shu sarlavhali mavjud nota bormi — dublikat oldini olish
         results = self.vault.search(safe_title, limit=3)
         for res in results:
             stem = res["path"].rsplit("/", 1)[-1].removesuffix(".md").lower()
-            if safe_title.lower() in stem or stem in safe_title.lower():
-                return self.vault.append(res["path"], content)
+            if stem == safe_title.lower():
+                return self.vault.append(res["path"], self._dated(content))
 
-        return self.vault.create(note_path, content)
+        # Yangi nota: frontmatter + kontent + bog'langan notalar
+        tags = [t.strip().lower() for t in folder.split("/") if t.strip()]
+        related = self.vault.find_related(safe_title, limit=5, exclude=note_path)
+
+        body = self.vault.build_frontmatter(safe_title, tags)
+        body += content.strip() + "\n"
+
+        if related:
+            body += "\n## Related\n"
+            for rel in related:
+                body += f"- {self.vault.note_link(rel)}\n"
+
+        return self.vault.create(note_path, body)
+
+    def _dated(self, content: str) -> str:
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        return f"## {stamp}\n\n{content.strip()}"

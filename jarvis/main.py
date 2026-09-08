@@ -26,9 +26,11 @@ from jarvis.prompts import SYSTEM_PROMPT
 from jarvis.tools import ToolRegistry
 from jarvis.ui import console
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
+
+SENSITIVE_TOOLS = {"run_command", "screenshot"}
 
 SLASH_COMMANDS = [
     "help", "clear", "model", "cost", "status", "memory", "compact",
@@ -184,8 +186,8 @@ def expand_mentions(text: str, workspace: Path) -> str:
     return re.sub(r"@([^\s@]+)", repl, text)
 
 
-def confirm_command(command: str, session: Session) -> bool:
-    console.print(f"[yellow]⚡ Run command?[/yellow] [bold]{command}[/bold]")
+def confirm_command(label: str, session: Session) -> bool:
+    console.print(f"[yellow]⚡ Allow?[/yellow] [bold]{label}[/bold]")
     while True:
         ans = console.input("[dim]  (y/n/always) [/dim]").strip().lower()
         if ans in ("y", "yes"):
@@ -248,9 +250,14 @@ def run_turn(client, config, registry, messages, session, interactive=True):
             else:
                 print(f"⏺ {name} {json.dumps(arguments, ensure_ascii=False)}")
 
-            if name == "run_command" and interactive and not session.bypass:
-                if not confirm_command(arguments.get("command", ""), session):
-                    result = {"error": "User denied permission to run command"}
+            if name in SENSITIVE_TOOLS and interactive and not session.bypass:
+                label = (
+                    arguments.get("command", "")
+                    if name == "run_command"
+                    else json.dumps(arguments, ensure_ascii=False)
+                )
+                if not confirm_command(label, session):
+                    result = {"error": "User denied permission"}
                 else:
                     result = registry.execute(name, arguments)
             else:
