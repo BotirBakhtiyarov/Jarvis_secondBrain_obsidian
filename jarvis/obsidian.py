@@ -114,6 +114,46 @@ class Vault:
     # ------------------------------------------------------------------
 
     def search(self, query: str, limit: int = 10) -> list[dict]:
+        """Keyword + (agar mavjud bo'lsa) semantik qidiruv — gibrid."""
+
+        keyword = self._keyword_search(query, limit=limit * 3)
+
+        semantic: dict[str, float] = {}
+        try:
+            from jarvis.semantic import SemanticIndex
+
+            if SemanticIndex.is_available():
+                notes = [
+                    (str(p.relative_to(self.root)), self._read(p))
+                    for p in self.get_all_notes()
+                ]
+                index = SemanticIndex(self.root)
+                for path, sim in index.search(notes, query, limit=limit * 3):
+                    if sim > 0.0:
+                        semantic[path] = sim
+        except Exception:  # noqa: BLE001
+            semantic = {}
+
+        merged: dict[str, dict] = {}
+        for r in keyword:
+            merged[r["path"]] = {"score": r["score"], "excerpt": r["excerpt"]}
+
+        max_kw = max((r["score"] for r in keyword), default=1.0)
+        for path, sim in semantic.items():
+            bonus = sim * max(10.0, max_kw * 0.5)
+            if path in merged:
+                merged[path]["score"] += bonus
+            else:
+                merged[path] = {"score": bonus, "excerpt": ""}
+
+        out = [
+            {"path": p, "score": round(v["score"], 1), "excerpt": v["excerpt"]}
+            for p, v in merged.items()
+        ]
+        out.sort(key=lambda r: r["score"], reverse=True)
+        return out[:limit]
+
+    def _keyword_search(self, query: str, limit: int = 10) -> list[dict]:
         """Note nomi, taglari va kontenti bo'yicha reytingli qidiruv."""
 
         query_lower = query.lower().strip()
@@ -252,6 +292,25 @@ class Vault:
             file.write(content)
 
         return {"success": True, "action": "appended", "path": note_path}
+
+    def move(self, note_path: str, new_path: str) -> dict:
+        """Notani boshqa papkaga ko'chiradi (Inbox triage uchun)."""
+
+        src = self.safe_path(note_path)
+        if not src.exists():
+            return {"success": False, "error": "Note not found", "path": note_path}
+
+        dst = self.safe_path(new_path)
+        if dst.exists():
+            return {
+                "success": False,
+                "error": "Target already exists",
+                "path": new_path,
+            }
+
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        src.rename(dst)
+        return {"success": True, "action": "moved", "from": note_path, "to": new_path}
 
     def list_notes(self, folder: str = "", limit: int = 500) -> dict:
         base = self.safe_path(folder) if folder else self.root

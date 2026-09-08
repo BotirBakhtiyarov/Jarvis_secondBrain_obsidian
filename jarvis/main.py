@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -27,7 +28,7 @@ from jarvis.prompts import SYSTEM_PROMPT
 from jarvis.tools import ToolRegistry
 from jarvis.ui import console
 
-VERSION = "0.6.1"
+VERSION = "0.7.0"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 
@@ -213,8 +214,16 @@ def confirm_command(label: str, session: Session) -> bool:
 def run_turn(client, config, registry, messages, session, interactive=True):
     while True:
         first = {"v": True}
+        status = {"obj": None}
+
+        if interactive:
+            status["obj"] = console.status("Thinking…", spinner="dots")
+            status["obj"].start()
 
         def on_text(chunk):
+            if status["obj"] is not None:
+                status["obj"].stop()
+                status["obj"] = None
             if interactive:
                 if first["v"]:
                     console.print()
@@ -227,9 +236,15 @@ def run_turn(client, config, registry, messages, session, interactive=True):
                 sys.stdout.write(chunk)
                 sys.stdout.flush()
 
-        text, tool_calls, _, usage = chat_stream(
-            client, config.model, messages, registry.schema(), on_text=on_text
-        )
+        try:
+            text, tool_calls, _, usage = chat_stream(
+                client, config.model, messages, registry.schema(), on_text=on_text
+            )
+        finally:
+            if status["obj"] is not None:
+                status["obj"].stop()
+                status["obj"] = None
+
         session.add_usage(usage)
 
         if interactive and first["v"]:
@@ -527,6 +542,59 @@ def print_cost_summary(session: Session, config):
     )
 
 
+def auto_memory(client, config, session, messages):
+    """Sessiya oxirida suhbatni xulosalab, muhim faktlarni Obsidian'ga saqlaydi."""
+
+    if not any(
+        m.get("role") == "assistant" and m.get("content") for m in messages
+    ):
+        return None
+
+    transcript = []
+    for m in messages[-20:]:
+        role = m.get("role", "user")
+        content = (m.get("content") or "").strip()
+        if role == "tool":
+            content = content[:200]
+        if not content:
+            continue
+        transcript.append(f"{role.upper()}: {content[:800]}")
+
+    if not transcript:
+        return None
+
+    prompt = (
+        "You are a memory assistant. Summarize the conversation and extract "
+        "durable, important facts (user preferences, decisions, goals, tasks, "
+        "things learned). Ignore small talk and never include secrets.\n\n"
+        "Return ONLY Markdown with exactly two sections:\n"
+        "## Summary\n2-4 sentences.\n\n## Facts\n- one fact per bullet.\n\n"
+        "Conversation:\n" + "\n\n".join(transcript)
+    )
+
+    try:
+        text, usage = chat_once(
+            client, config.model, [{"role": "system", "content": prompt}]
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+    session.add_usage(usage)
+    if not text or not text.strip():
+        return None
+
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    note_path = f"Sessions/{stamp}.md"
+    vault = Vault(config.obsidian_vault)
+    body = vault.build_frontmatter(f"Session {stamp}", ["session"])
+    body += text.strip() + "\n"
+
+    res = vault.create(note_path, body)
+    if not res.get("success"):
+        return None
+    return note_path
+
+
 def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
 
@@ -655,6 +723,13 @@ def main(argv=None):
 
     finally:
         save_session(config.history_path, messages)
+        if os.environ.get("JARVIS_AUTO_MEMORY", "1") != "0":
+            try:
+                saved = auto_memory(client, config, session, messages)
+                if saved:
+                    console.print(f"[dim]🧠 Session summary → {saved}[/dim]")
+            except Exception:  # noqa: BLE001
+                pass
 
     console.print()
     print_cost_summary(session, config)

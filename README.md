@@ -77,6 +77,12 @@ jarvis --model deepseek-chat --workspace /path/to/projects
   to related notes, so the Obsidian graph view stays tidy.
 - **Terminal system tools**: open URLs/apps, notifications, clipboard, screenshots.
 - **MCP support**: connect any MCP server (Gmail, Slack, ...) via config.
+- **Daily notes + Inbox triage**: `daily_note` creates/links daily notes,
+  `triage_inbox` archives the Inbox into `Archive/YYYY/MM/`.
+- **Auto-memory**: on exit, JARVIS summarizes the session and extracts
+  important facts into Obsidian (`JARVIS_AUTO_MEMORY=0` to disable).
+- **Semantic search**: optional vector search (fastembed) blended with
+  keyword search — `pip install -e ".[semantic]"`.
 
 ## Adding a new tool (e.g. Telegram bot, Gmail)
 
@@ -124,6 +130,8 @@ Every plugin file must define a `register(registry, config)` function. Use
 | `append_to_note` | append new information to an existing note |
 | `list_notes` | show the vault structure (list of notes) |
 | `save_memory` | store important information — JARVIS decides what to save and what to skip |
+| `daily_note` | get or create today's daily note (linked to yesterday's) |
+| `triage_inbox` | archive all Inbox notes into `Archive/YYYY/MM/` |
 
 ### Project work (workspace)
 

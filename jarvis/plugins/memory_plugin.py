@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from jarvis.obsidian import Vault
@@ -10,6 +10,8 @@ _INVALID_CHARS = set('/\\:*?"<>|')
 def register(registry, config):
     vault = Vault(config.obsidian_vault)
     registry.register(SaveMemoryTool(vault))
+    registry.register(DailyNoteTool(vault))
+    registry.register(TriageInboxTool(vault))
 
 
 class SaveMemoryTool(Tool):
@@ -83,3 +85,80 @@ class SaveMemoryTool(Tool):
     def _dated(self, content: str) -> str:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         return f"## {stamp}\n\n{content.strip()}"
+
+
+class DailyNoteTool(Tool):
+    def __init__(self, vault: Vault):
+        super().__init__(
+            name="daily_note",
+            description=(
+                "Get or create today's daily note (Daily/YYYY-MM-DD.md). "
+                "Optionally append content to it. Links to yesterday's note."
+            ),
+            parameters={
+                "content": {
+                    "type": "string",
+                    "description": "Content to append (optional)",
+                }
+            },
+        )
+        self.vault = vault
+
+    def execute(self, content=""):
+        today = date.today().isoformat()
+        note_path = f"Daily/{today}.md"
+        path = self.vault.safe_path(note_path)
+        created = not path.exists()
+
+        if created:
+            body = self.vault.build_frontmatter(today, ["daily"])
+            body += f"# {today}\n\n"
+            yesterday = (date.today() - timedelta(days=1)).isoformat()
+            if self.vault.safe_path(f"Daily/{yesterday}.md").exists():
+                body += f"← [[{yesterday}]]\n\n"
+            self.vault.create(note_path, body)
+
+        if content and content.strip():
+            self.vault.append(note_path, content.strip())
+
+        return {
+            "success": True,
+            "action": "daily",
+            "path": note_path,
+            "created": created,
+        }
+
+
+class TriageInboxTool(Tool):
+    def __init__(self, vault: Vault):
+        super().__init__(
+            name="triage_inbox",
+            description=(
+                "Archive all notes from the Inbox folder: move each to "
+                "Archive/YYYY/MM/. Use this to clean up the Inbox after "
+                "processing its notes."
+            ),
+        )
+        self.vault = vault
+
+    def execute(self):
+        inbox = self.vault.safe_path("Inbox")
+        if not inbox.exists():
+            return {"success": True, "action": "triage", "moved": []}
+
+        now = datetime.now()
+        dest_dir = f"Archive/{now.strftime('%Y')}/{now.strftime('%m')}"
+
+        moved = []
+        for note in sorted(inbox.glob("*.md")):
+            rel = str(note.relative_to(self.vault.root))
+            res = self.vault.move(rel, f"{dest_dir}/{note.name}")
+            if res.get("success"):
+                moved.append(res["to"])
+
+        return {
+            "success": True,
+            "action": "triage",
+            "moved": moved,
+            "to": dest_dir,
+        }

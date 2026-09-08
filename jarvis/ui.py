@@ -43,6 +43,13 @@ def print_tool_result(result: dict):
             console.print(f"[yellow]  {stderr}[/yellow]", markup=False, highlight=False)
         return
 
+    if "moved" in result:
+        n = len(result.get("moved") or [])
+        console.print(
+            f"[green]  ✓ moved {n} notes[/green] [dim]→ {result.get('to', '')}[/dim]"
+        )
+        return
+
     if "action" in result:
         console.print(
             f"[green]  ✓ {result['action']}[/green] [dim]{result.get('path', '')}[/dim]"
