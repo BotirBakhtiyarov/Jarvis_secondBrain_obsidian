@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from openai import OpenAI
@@ -26,7 +27,7 @@ from jarvis.prompts import SYSTEM_PROMPT
 from jarvis.tools import ToolRegistry
 from jarvis.ui import console
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 
@@ -159,6 +160,16 @@ def parse_args(argv):
 
 def build_system(config: "Config") -> str:
     system = SYSTEM_PROMPT
+
+    now = datetime.now().astimezone()
+    system += (
+        "\n\nCurrent date and time: "
+        f"{now.strftime('%Y-%m-%d (%A) %H:%M:%S')} "
+        f"(UTC{now.strftime('%z')}, {now.tzname()})\n"
+        "For any date- or time-sensitive task, call the `get_time` tool "
+        "to obtain the precise current time instead of guessing.\n"
+    )
+
     jarvis_md = config.workspace / "JARVIS.md"
     if jarvis_md.exists():
         try:

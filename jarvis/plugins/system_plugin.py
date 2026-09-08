@@ -2,12 +2,14 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from jarvis.tools import Tool
 
 
 def register(registry, config):
+    registry.register(GetTimeTool())
     registry.register(OpenUrlTool())
     registry.register(OpenAppTool())
     registry.register(NotifyTool())
@@ -33,6 +35,29 @@ def _run(cmd, timeout=30):
         "stdout": (proc.stdout or "").strip(),
         "stderr": (proc.stderr or "").strip(),
     }
+
+
+class GetTimeTool(Tool):
+    def __init__(self):
+        super().__init__(
+            name="get_time",
+            description=(
+                "Get the current date and time (local timezone). Use this "
+                "whenever the task involves dates, deadlines, scheduling, "
+                "or any 'today'/'now' reference."
+            ),
+        )
+
+    def execute(self):
+        now = datetime.now().astimezone()
+        return {
+            "iso": now.isoformat(),
+            "date": now.strftime("%Y-%m-%d"),
+            "time": now.strftime("%H:%M:%S"),
+            "weekday": now.strftime("%A"),
+            "timezone": str(now.tzinfo),
+            "tz_offset": now.strftime("%z"),
+        }
 
 
 class OpenUrlTool(Tool):

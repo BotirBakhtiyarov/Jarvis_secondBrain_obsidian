@@ -21,3 +21,4 @@ def test_plugin_discovery_registers_tools(tmp_path):
     assert "save_memory" in names
     assert "open_url" in names
     assert "screenshot" in names
+    assert "get_time" in names
