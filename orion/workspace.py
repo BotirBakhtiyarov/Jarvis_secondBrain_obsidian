@@ -116,10 +116,7 @@ class Workspace:
 
         if not replace_all and count > 1:
             return {
-                "error": (
-                    f"old_text appears {count} times. "
-                    "Provide more (unique) context"
-                ),
+                "error": (f"old_text appears {count} times. Provide more (unique) context"),
                 "path": path,
             }
 

@@ -1,9 +1,36 @@
+# Virtual environments
 .venv/
+venv/
+env/
+
+# Secrets and local configuration — never commit these
 .env
+.env.*
+!.env.example
+
+# Python build artifacts
 __pycache__/
-*.pyc
-.pytest_cache/
-.deep-copilot/
+*.py[cod]
+*.egg-info/
+.eggs/
 dist/
 build/
-*.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Assistant notes
+.deep-copilot/
+
+# ORION local data (in case the vault or workspace overlaps this repo)
+.orion_index/
+.orion_backups/

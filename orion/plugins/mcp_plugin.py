@@ -34,9 +34,7 @@ class MCPTool(Tool):
         schema = getattr(tool, "inputSchema", None) or {}
         super().__init__(
             name=f"mcp__{server}__{tool.name}",
-            description=(
-                tool.description or f"MCP tool '{tool.name}' from '{server}'"
-            ),
+            description=(tool.description or f"MCP tool '{tool.name}' from '{server}'"),
             parameters=schema.get("properties", {}),
             required=schema.get("required", []),
         )

@@ -46,34 +46,22 @@ def load_config(overrides: dict | None = None) -> Config:
     vault_raw = overrides.get("vault") or os.getenv("OBSIDIAN_VAULT", "")
     if not vault_raw:
         raise ValueError(
-            "OBSIDIAN_VAULT not found in .env. "
-            "Example: OBSIDIAN_VAULT=/home/user/SecondBrain"
+            "OBSIDIAN_VAULT not found in .env. Example: OBSIDIAN_VAULT=/home/user/SecondBrain"
         )
 
-    workspace_raw = (
-        overrides.get("workspace")
-        or os.getenv("WORKSPACE")
-        or str(Path.cwd())
-    )
+    workspace_raw = overrides.get("workspace") or os.getenv("WORKSPACE") or str(Path.cwd())
 
-    history_raw = os.getenv("ORION_HISTORY") or str(
-        Path.home() / ".orion" / "history.json"
-    )
+    history_raw = os.getenv("ORION_HISTORY") or str(Path.home() / ".orion" / "history.json")
 
     return Config(
         api_key=api_key,
         base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
-        model=overrides.get("model")
-        or os.getenv("DEEPSEEK_MODEL", DEFAULT_MODEL),
+        model=overrides.get("model") or os.getenv("DEEPSEEK_MODEL", DEFAULT_MODEL),
         obsidian_vault=Path(vault_raw).expanduser().resolve(),
         workspace=Path(workspace_raw).expanduser().resolve(),
         history_path=Path(history_raw).expanduser().resolve(),
         max_history=int(os.getenv("ORION_MAX_HISTORY", "50")),
-        input_price=float(
-            os.getenv("DEEPSEEK_INPUT_PRICE", DEFAULT_INPUT_PRICE)
-        ),
-        output_price=float(
-            os.getenv("DEEPSEEK_OUTPUT_PRICE", DEFAULT_OUTPUT_PRICE)
-        ),
+        input_price=float(os.getenv("DEEPSEEK_INPUT_PRICE", DEFAULT_INPUT_PRICE)),
+        output_price=float(os.getenv("DEEPSEEK_OUTPUT_PRICE", DEFAULT_OUTPUT_PRICE)),
         tavily_api_key=os.getenv("TAVILY_API_KEY", "").strip(),
     )

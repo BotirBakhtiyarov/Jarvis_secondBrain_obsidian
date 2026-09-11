@@ -8,8 +8,11 @@ MAX_EXCERPT_CHARS = 1500
 # Vault ichidagi ichki papkalar (indeks, backup, Obsidian konfigi) — bu
 # papkalar notalar ro'yxatidan va qidiruvdan chetlashtiriladi.
 IGNORED_DIRS = {
-    ".obsidian", ".orion_backups", ".orion_index",
-    ".jarvis_backups", ".jarvis_index",
+    ".obsidian",
+    ".orion_backups",
+    ".orion_index",
+    ".jarvis_backups",
+    ".jarvis_index",
 }
 
 
@@ -38,11 +41,7 @@ class Vault:
     def get_all_notes(self) -> list[Path]:
         if not self.root.exists():
             return []
-        return [
-            p
-            for p in self.root.rglob("*.md")
-            if not (IGNORED_DIRS & set(p.parts))
-        ]
+        return [p for p in self.root.rglob("*.md") if not (IGNORED_DIRS & set(p.parts))]
 
     def iter_notes(self) -> list[tuple[str, str]]:
         """Barcha notalarni (path, content) juftliklari sifatida qaytaradi."""
@@ -170,9 +169,7 @@ class Vault:
         """Note nomi, taglari va kontenti bo'yicha reytingli qidiruv."""
 
         query_lower = query.lower().strip()
-        words = [
-            w for w in re.findall(r"[a-z0-9_']+", query_lower) if len(w) >= 3
-        ]
+        words = [w for w in re.findall(r"[a-z0-9_']+", query_lower) if len(w) >= 3]
 
         results: list[dict] = []
 
@@ -218,9 +215,7 @@ class Vault:
                 {
                     "path": str(note.relative_to(self.root)),
                     "score": score,
-                    "excerpt": self._best_excerpt(
-                        content, query_lower, words
-                    ),
+                    "excerpt": self._best_excerpt(content, query_lower, words),
                 }
             )
 
@@ -370,11 +365,7 @@ class Vault:
         """So'rovga mos mavjud notalarning yo'llarini qaytaradi."""
 
         results = self.search(query, limit=limit)
-        return [
-            r["path"]
-            for r in results
-            if r["path"] != exclude
-        ]
+        return [r["path"] for r in results if r["path"] != exclude]
 
     def add_backlinks(self, source_path: str, target_paths: list[str]) -> list[str]:
         """Har bir target notaga manba nota uchun backlink qo'shadi.
@@ -403,9 +394,7 @@ class Vault:
                 continue
 
             if "## Backlinks" in content:
-                new_content = content.replace(
-                    "## Backlinks", f"## Backlinks\n- {link}", 1
-                )
+                new_content = content.replace("## Backlinks", f"## Backlinks\n- {link}", 1)
             else:
                 new_content = content.rstrip() + f"\n\n## Backlinks\n- {link}\n"
 

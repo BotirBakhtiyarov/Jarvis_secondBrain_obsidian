@@ -1,6 +1,5 @@
 import difflib
 import json
-import time
 
 from rich.console import Console
 from rich.panel import Panel
@@ -22,7 +21,9 @@ _TAGLINE = "[dim]Operational Reasoning, Intelligence & Orchestration Network[/di
 def print_banner(version: str):
     console.print()
     console.print(_BANNER)
-    console.print(Panel.fit(f"[bold cyan]ORION {version}[/bold cyan]  {_TAGLINE}", border_style="cyan"))
+    console.print(
+        Panel.fit(f"[bold cyan]ORION {version}[/bold cyan]  {_TAGLINE}", border_style="cyan")
+    )
     console.print()
 
 
@@ -53,25 +54,19 @@ def print_tool_result(result: dict):
 
     if "moved" in result:
         n = len(result.get("moved") or [])
-        console.print(
-            f"[green]  ✓ moved {n} notes[/green] [dim]→ {result.get('to', '')}[/dim]"
-        )
+        console.print(f"[green]  ✓ moved {n} notes[/green] [dim]→ {result.get('to', '')}[/dim]")
         return
 
     if "action" in result:
         if result["action"] == "reindex":
-            console.print(
-                f"[green]  ✓ indexed {result.get('notes', '?')} notes[/green]"
-            )
+            console.print(f"[green]  ✓ indexed {result.get('notes', '?')} notes[/green]")
             return
         if result["action"] == "commit":
             console.print(
                 f"[green]  ✓ committed[/green] [dim]{result.get('message', '')[:80]}[/dim]"
             )
             return
-        console.print(
-            f"[green]  ✓ {result['action']}[/green] [dim]{result.get('path', '')}[/dim]"
-        )
+        console.print(f"[green]  ✓ {result['action']}[/green] [dim]{result.get('path', '')}[/dim]")
         if result.get("backup"):
             console.print(f"[dim]  backup: {result['backup']}[/dim]")
         if result.get("backlinks"):
@@ -92,9 +87,7 @@ def print_tool_result(result: dict):
                 if snippet:
                     console.print(f"    [dim]{snippet[:160]}[/dim]")
             else:
-                console.print(
-                    f"  [bold]{r['path']}[/bold] [dim](score {r['score']})[/dim]"
-                )
+                console.print(f"  [bold]{r['path']}[/bold] [dim](score {r['score']})[/dim]")
         return
 
     if "notes" in result and "total" in result:
@@ -111,8 +104,7 @@ def print_tool_result(result: dict):
 
     if "content" in result and "path" in result:
         console.print(
-            f"[dim]  read {result['path']} "
-            f"({result.get('total_lines', '?')} lines)[/dim]"
+            f"[dim]  read {result['path']} ({result.get('total_lines', '?')} lines)[/dim]"
         )
         return
 

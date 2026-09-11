@@ -197,9 +197,7 @@ class GitCreatePrTool(Tool):
         if not _is_repo(self.ws):
             return {"error": "workspace is not a git repository"}
 
-        if not subprocess.run(
-            ["gh", "--version"], capture_output=True, text=True
-        ).returncode == 0:
+        if not subprocess.run(["gh", "--version"], capture_output=True, text=True).returncode == 0:
             return {"error": "GitHub CLI (gh) not found — install and authenticate it first"}
 
         args = ["gh", "pr", "create", "--title", title]

@@ -20,9 +20,7 @@ def register(registry, config):
 
 def _run(cmd, timeout=30):
     try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return {"error": f"Command timed out after {timeout}s"}
     except FileNotFoundError as err:
@@ -91,9 +89,7 @@ class OpenAppTool(Tool):
     def __init__(self):
         super().__init__(
             name="open_app",
-            description=(
-                "Launch an application by name (must be on PATH) or by path."
-            ),
+            description=("Launch an application by name (must be on PATH) or by path."),
             parameters={
                 "name": {
                     "type": "string",
@@ -139,9 +135,7 @@ class NotifyTool(Tool):
 
     def execute(self, title, message):
         if sys.platform == "darwin":
-            script = (
-                f'display notification "{message}" with title "{title}"'
-            )
+            script = f'display notification "{message}" with title "{title}"'
             return _run(["osascript", "-e", script], timeout=15)
         if sys.platform == "win32":
             return {"error": "Windows not yet supported"}
@@ -161,21 +155,17 @@ class ClipboardCopyTool(Tool):
     def execute(self, text):
         try:
             if sys.platform == "darwin":
-                proc = subprocess.run(
-                    ["pbcopy"], input=text, text=True, timeout=15
-                )
+                proc = subprocess.run(["pbcopy"], input=text, text=True, timeout=15)
             elif sys.platform == "win32":
-                proc = subprocess.run(
-                    ["clip"], input=text, text=True, timeout=15
-                )
+                proc = subprocess.run(["clip"], input=text, text=True, timeout=15)
             elif shutil.which("wl-copy"):
-                proc = subprocess.run(
-                    ["wl-copy"], input=text, text=True, timeout=15
-                )
+                proc = subprocess.run(["wl-copy"], input=text, text=True, timeout=15)
             elif shutil.which("xclip"):
                 proc = subprocess.run(
                     ["xclip", "-selection", "clipboard"],
-                    input=text, text=True, timeout=15,
+                    input=text,
+                    text=True,
+                    timeout=15,
                 )
             else:
                 return {"error": "Clipboard tool not found (xclip/wl-copy)"}
@@ -197,9 +187,7 @@ class ClipboardReadTool(Tool):
             if sys.platform == "darwin":
                 cmd = ["pbpaste"]
             elif sys.platform == "win32":
-                return _run(
-                    ["powershell", "-Command", "Get-Clipboard"], timeout=15
-                )
+                return _run(["powershell", "-Command", "Get-Clipboard"], timeout=15)
             elif shutil.which("wl-paste"):
                 cmd = ["wl-paste"]
             elif shutil.which("xclip"):
@@ -230,10 +218,7 @@ class ScreenshotTool(Tool):
 
     def execute(self, path=""):
         if not path:
-            path = str(
-                Path.home()
-                / f"orion_screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
-            )
+            path = str(Path.home() / f"orion_screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png")
 
         if sys.platform == "darwin":
             res = _run(["screencapture", "-x", path], timeout=30)

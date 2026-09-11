@@ -15,7 +15,7 @@ from prompt_toolkit.history import FileHistory
 
 from orion import ui
 from orion.agent import Plan, PlanTool
-from orion.config import load_config
+from orion.config import Config, load_config
 from orion.llm import chat_once, chat_stream
 from orion.memory import (
     list_sessions,
@@ -36,9 +36,22 @@ EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 SENSITIVE_TOOLS = {"run_command", "screenshot", "git_commit", "git_create_pr"}
 
 SLASH_COMMANDS = [
-    "help", "clear", "model", "cost", "status", "memory", "compact",
-    "add-dir", "review", "init", "permissions", "resume", "tools",
-    "config", "exit", "version",
+    "help",
+    "clear",
+    "model",
+    "cost",
+    "status",
+    "memory",
+    "compact",
+    "add-dir",
+    "review",
+    "init",
+    "permissions",
+    "resume",
+    "tools",
+    "config",
+    "exit",
+    "version",
 ]
 
 ORION_MD_TEMPLATE = """# ORION.md
@@ -152,24 +165,36 @@ def parse_args(argv):
         "query", nargs="*", help="Boshlang'ich so'rov (interaktiv sessiya boshlaydi)"
     )
     parser.add_argument(
-        "-p", "--print", action="store_true",
+        "-p",
+        "--print",
+        action="store_true",
         help="Javobni chiqarib chiqish (non-interaktiv)",
     )
     parser.add_argument(
-        "-c", "--continue", dest="resume_last", action="store_true",
+        "-c",
+        "--continue",
+        dest="resume_last",
+        action="store_true",
         help="Eng oxirgi sessiyani davom ettirish",
     )
     parser.add_argument(
-        "-r", "--resume", metavar="ID", help="ID bo'yicha sessiyani davom ettirish",
+        "-r",
+        "--resume",
+        metavar="ID",
+        help="ID bo'yicha sessiyani davom ettirish",
     )
     parser.add_argument(
-        "-v", "--version", action="store_true", help="Versiyani ko'rsatish",
+        "-v",
+        "--version",
+        action="store_true",
+        help="Versiyani ko'rsatish",
     )
     parser.add_argument("--model", help="DeepSeek modelini almashtirish")
     parser.add_argument("--vault", help="Obsidian vault path'ni almashtirish")
     parser.add_argument("--workspace", help="Workspace (loyihalar) root'ini almashtirish")
     parser.add_argument(
-        "--dangerously-skip-permissions", action="store_true",
+        "--dangerously-skip-permissions",
+        action="store_true",
         help="Buyruqlar uchun ruxsat so'rovlarini o'tkazib yuborish",
     )
 
@@ -180,7 +205,7 @@ def parse_args(argv):
     return args
 
 
-def build_system(config: "Config") -> str:
+def build_system(config: Config) -> str:
     system = SYSTEM_PROMPT
 
     now = datetime.now().astimezone()
@@ -211,7 +236,7 @@ def expand_mentions(text: str, workspace: Path) -> str:
         try:
             if p.is_file() and (workspace in p.parents or p == workspace):
                 content = p.read_text(encoding="utf-8", errors="ignore")
-                return f"\n<file path=\"{rel}\">\n{content}\n</file>\n"
+                return f'\n<file path="{rel}">\n{content}\n</file>\n'
         except OSError:
             pass
         return match.group(0)
@@ -325,6 +350,7 @@ def run_turn(client, config, registry, messages, session, interactive=True):
 # ----------------------------------------------------------------------
 # Slash command handlers
 # ----------------------------------------------------------------------
+
 
 def cmd_help(ctx):
     from rich.table import Table
@@ -474,9 +500,7 @@ def cmd_review(ctx):
     status = subprocess.run(
         ["git", "status", "--short"], cwd=str(ws), capture_output=True, text=True
     )
-    diff = subprocess.run(
-        ["git", "diff", "--stat"], cwd=str(ws), capture_output=True, text=True
-    )
+    diff = subprocess.run(["git", "diff", "--stat"], cwd=str(ws), capture_output=True, text=True)
     console.print("[cyan]git status:[/cyan]")
     console.print(status.stdout or "(clean)", markup=False)
     console.print("[cyan]git diff --stat:[/cyan]")
@@ -546,6 +570,7 @@ def cmd_version(ctx):
 # Config command (slash + `orion config` CLI)
 # ----------------------------------------------------------------------
 
+
 def _find_env_example() -> Path | None:
     candidates = [
         Path.cwd() / ".env.example",
@@ -613,7 +638,9 @@ def run_config_command(args):
         except ValueError:
             config = None
         if config is None:
-            console.print("[yellow]OBSIDIAN_VAULT is not set yet — run: orion config --init[/yellow]")
+            console.print(
+                "[yellow]OBSIDIAN_VAULT is not set yet — run: orion config --init[/yellow]"
+            )
             return
         show_config_table(config)
 
@@ -675,9 +702,7 @@ def print_cost_summary(session: Session, config):
 def auto_memory(client, config, session, messages):
     """Sessiya oxirida suhbatni xulosalab, muhim faktlarni Obsidian'ga saqlaydi."""
 
-    if not any(
-        m.get("role") == "assistant" and m.get("content") for m in messages
-    ):
+    if not any(m.get("role") == "assistant" and m.get("content") for m in messages):
         return None
 
     transcript = []
@@ -703,9 +728,7 @@ def auto_memory(client, config, session, messages):
     )
 
     try:
-        text, usage = chat_once(
-            client, config.model, [{"role": "system", "content": prompt}]
-        )
+        text, usage = chat_once(client, config.model, [{"role": "system", "content": prompt}])
     except Exception:  # noqa: BLE001
         return None
 
@@ -742,12 +765,10 @@ def main(argv=None):
         )
     except ValueError as err:
         console.print(f"[bold red]❌ {err}[/bold red]")
-        raise SystemExit(1)
+        raise SystemExit(1) from err
 
     if not config.api_key:
-        console.print(
-            "[bold red]❌ DEEPSEEK_API_KEY not found! Check your .env file.[/bold red]"
-        )
+        console.print("[bold red]❌ DEEPSEEK_API_KEY not found! Check your .env file.[/bold red]")
         raise SystemExit(1)
 
     client = OpenAI(api_key=config.api_key, base_url=config.base_url)
@@ -848,9 +869,7 @@ def main(argv=None):
             messages.append({"role": "user", "content": line})
 
             try:
-                run_turn(
-                    client, config, ctx["registry"], messages, session, interactive=True
-                )
+                run_turn(client, config, ctx["registry"], messages, session, interactive=True)
             except KeyboardInterrupt:
                 console.print("\n[dim](interrupted)[/dim]")
                 if messages and messages[-1].get("role") == "user":

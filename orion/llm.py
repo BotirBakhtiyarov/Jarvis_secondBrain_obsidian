@@ -49,9 +49,7 @@ def chat_stream(
 
         if delta and delta.tool_calls:
             for tc in delta.tool_calls:
-                entry = tool_calls.setdefault(
-                    tc.index, {"id": "", "name": "", "arguments": ""}
-                )
+                entry = tool_calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
                 if tc.id:
                     entry["id"] = tc.id
                 if tc.function:

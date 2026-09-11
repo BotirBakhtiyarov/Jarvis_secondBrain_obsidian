@@ -17,11 +17,7 @@ def _clean_tail(messages: list[dict]) -> list[dict]:
     cut = None
     for i in range(len(messages) - 1, -1, -1):
         m = messages[i]
-        if (
-            m.get("role") == "assistant"
-            and m.get("content")
-            and not m.get("tool_calls")
-        ):
+        if m.get("role") == "assistant" and m.get("content") and not m.get("tool_calls"):
             cut = i + 1
             break
     return messages[:cut] if cut is not None else []

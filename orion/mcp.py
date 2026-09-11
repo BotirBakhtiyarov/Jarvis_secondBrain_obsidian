@@ -86,9 +86,7 @@ class MCPManager:
                     if op == "list":
                         future.set_result(await self._list(sessions))
                     else:
-                        future.set_result(
-                            await self._call(sessions, args[0], args[1], args[2])
-                        )
+                        future.set_result(await self._call(sessions, args[0], args[1], args[2]))
                 except Exception as exc:  # noqa: BLE001
                     future.set_exception(exc)
         finally:
@@ -112,9 +110,7 @@ class MCPManager:
 
     def _request(self, op, *args, timeout: int = 60):
         future: Future = Future()
-        self._loop.call_soon_threadsafe(
-            self._queue.put_nowait, (future, op, args)
-        )
+        self._loop.call_soon_threadsafe(self._queue.put_nowait, (future, op, args))
         return future.result(timeout=timeout)
 
     def connect(self, timeout: int = 60):

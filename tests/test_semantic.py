@@ -27,9 +27,7 @@ def test_semantic_ranking_and_cache_with_fake_embeddings(tmp_path, monkeypatch):
 
     monkeypatch.setattr(fastembed, "TextEmbedding", FakeEmbedding)
     # Haqiqiy cache tekshiruvini bypass qilamiz — test soxta embedding ishlatadi.
-    monkeypatch.setattr(
-        SemanticIndex, "model_cached", staticmethod(lambda: True)
-    )
+    monkeypatch.setattr(SemanticIndex, "model_cached", staticmethod(lambda: True))
 
     notes = [
         ("cats.md", "Cats are mammals."),
@@ -51,6 +49,7 @@ def test_search_without_index_returns_empty(tmp_path):
     assert index.search("anything") == []
 
 
+@pytest.mark.network
 def test_semantic_index_build_and_search(tmp_path):
     notes = [
         ("cats.md", "Cats are small domesticated carnivorous mammals."),

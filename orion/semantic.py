@@ -28,6 +28,7 @@ class SemanticIndex:
     def is_available() -> bool:
         try:
             import fastembed  # noqa: F401
+
             return True
         except Exception:  # noqa: BLE001
             return False
@@ -51,9 +52,7 @@ class SemanticIndex:
             return False
 
         stem = MODEL_NAME.replace("/", "__")
-        return (cache / stem).exists() or any(
-            p.is_dir() for p in cache.iterdir() if stem in p.name
-        )
+        return (cache / stem).exists() or any(p.is_dir() for p in cache.iterdir() if stem in p.name)
 
     def _mark_disabled(self) -> None:
         self.dir.mkdir(parents=True, exist_ok=True)

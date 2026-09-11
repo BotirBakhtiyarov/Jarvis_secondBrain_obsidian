@@ -16,6 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "ruff",
 ]
 mcp = [
     "mcp<2",
@@ -29,6 +30,7 @@ semantic = [
 [dependency-groups]
 dev = [
     "pytest",
+    "ruff",
 ]
 mcp = [
     "mcp<2",
@@ -39,6 +41,27 @@ semantic = [
 
 [tool.uv]
 default-groups = ["dev", "mcp", "semantic"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    # Line length is handled by the formatter, not the linter.
+    "E501",
+    # run_turn() defines its closure fresh each loop iteration and consumes
+    # it synchronously, so late binding is not a real bug here.
+    "B023",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "network: tests that download models or otherwise need network access",
+]
 
 [project.scripts]
 orion = "orion.main:main"

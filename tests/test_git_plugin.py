@@ -7,9 +7,7 @@ from orion.plugins.git_plugin import GitCommitTool, GitLogTool, GitStatusTool
 
 @pytest.fixture
 def repo(tmp_path):
-    if subprocess.run(
-        ["git", "--version"], capture_output=True, text=True
-    ).returncode != 0:
+    if subprocess.run(["git", "--version"], capture_output=True, text=True).returncode != 0:
         pytest.skip("git not available")
 
     for args in (

@@ -1,5 +1,4 @@
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
 from orion.obsidian import Vault
 from orion.tools import Tool
@@ -196,12 +195,7 @@ class ReindexTool(Tool):
         from orion.semantic import SemanticIndex
 
         if not SemanticIndex.is_available():
-            return {
-                "error": (
-                    "fastembed is not installed. "
-                    "Run: pip install -e '.[semantic]'"
-                )
-            }
+            return {"error": ("fastembed is not installed. Run: pip install -e '.[semantic]'")}
 
         notes = self.vault.iter_notes()
         index = SemanticIndex(self.vault.root)

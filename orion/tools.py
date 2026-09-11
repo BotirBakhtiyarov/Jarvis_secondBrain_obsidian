@@ -15,9 +15,7 @@ class Tool:
     required: list[str] = field(default_factory=list)
 
     def execute(self, **kwargs) -> dict:
-        raise NotImplementedError(
-            f"Tool '{self.name}' da execute() metodi yozilmagan"
-        )
+        raise NotImplementedError(f"Tool '{self.name}' da execute() metodi yozilmagan")
 
     def to_schema(self) -> dict:
         """OpenAI/DeepSeek function-calling sxemasini qaytaradi."""
