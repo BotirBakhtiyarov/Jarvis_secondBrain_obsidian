@@ -21,7 +21,7 @@ ORION uses [uv](https://docs.astral.sh/uv/) as its package manager.
 
 ```bash
 # 1. Fork the repo on GitHub, then clone your fork
-git clone https://github.com/<your-username>/orion-second-brain.git
+git clone https://github.com/BotirBakhtiyarov/orion-second-brain.git
 cd orion-second-brain
 
 # 2. Install uv if you don't have it
