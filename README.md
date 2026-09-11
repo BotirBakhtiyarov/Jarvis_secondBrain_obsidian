@@ -32,10 +32,11 @@ reads like a real tool, not a toy.
 ORION runs entirely in the terminal. Its startup banner looks like this:
 
 ```text
-  ___   ____  ___  ___  _   _
- / _ \ |  _ \|_ _|/ _ \| \ | |
-| (_) || |_) | | || (_) |  \| |
- \___/ |____/|___| \___/|_|\__|
+  ___  ____  ___ ___  _   _
+ / _ \|  _ \|_ _/ _ \| \ | |
+| | | | |_) || | | | |  \| |
+| |_| |  _ < | | |_| | |\  |
+ \___/|_| \_\___\___/|_| \_|
 
 ╭──────────────────────────────────────────────────────────────────────────╮
 │ ORION 0.8.0  Operational Reasoning, Intelligence & Orchestration Network │
