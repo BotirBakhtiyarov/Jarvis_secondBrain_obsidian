@@ -29,7 +29,15 @@ reads like a real tool, not a toy.
 
 ## Demo
 
-ORION runs entirely in the terminal. Its startup banner looks like this:
+### Terminal
+
+![ORION running in the terminal](img/demo.png)
+
+### Second brain in Obsidian
+
+![ORION's notes organized in an Obsidian vault](img/obsidian.png)
+
+ORION runs entirely in the terminal. On startup it prints this banner:
 
 ```text
   ___  ____  ___ ___  _   _
@@ -42,9 +50,6 @@ ORION runs entirely in the terminal. Its startup banner looks like this:
 │ ORION 0.8.0  Operational Reasoning, Intelligence & Orchestration Network │
 ╰──────────────────────────────────────────────────────────────────────────╯
 ```
-
-A short screen recording / GIF would be a welcome contribution here — none is
-committed yet (see [good first issues](docs/good-first-issues.md)).
 
 ## Features
 

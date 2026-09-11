@@ -135,25 +135,24 @@ error messages are more helpful.
 
 ---
 
-## 6. Add a demo recording to the README
+## 6. Add an animated demo recording to the README
 
 **Difficulty:** Easy (documentation)
 
-**Goal:** The README has a "Demo" section with only the startup banner. Record a
-short terminal session (an animated GIF or an
-[asciinema](https://asciinema.org/) cast) showing a real interaction, and embed
-it.
+**Goal:** The README already shows static screenshots (`img/demo.png` for the
+terminal and `img/obsidian.png` for the vault). Add a short animated recording
+(GIF or an [asciinema](https://asciinema.org/) cast) of a real interaction to
+bring the Demo section to life.
 
 **Steps:**
 
 1. Install ORION locally (`uv sync`, configure `.env`).
 2. Record a short session (10–20s) that shows: starting ORION, a question, a
    tool call, and saving a note.
-3. Save the asset under `docs/` (e.g. `docs/demo.gif`).
-4. Replace the banner-only Demo section in `README.md` with the recording, and
-   keep the banner text as a fallback.
+3. Save the asset under `img/` (e.g. `img/demo.gif`) — keep it reasonably small.
+4. Add it to the Demo section in `README.md`, above the static screenshots.
 
-**Expected result:** The README shows a real demo, and the asset is committed
-(keep it reasonably small).
+**Expected result:** The README shows an animated demo, and the asset is
+committed.
 
-**Relevant files:** `README.md`, `docs/`.
+**Relevant files:** `README.md`, `img/`.
