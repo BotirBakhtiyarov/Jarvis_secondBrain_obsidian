@@ -3,10 +3,9 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Tool:
-    """ORION tool'ining asosiy klassi.
+    """Base class for ORION tools: subclass and implement ``execute``.
 
-    Yangi tool yozish uchun shu klassdan meros olib, `execute` metodini
-    to'ldirish kifoya. Misolni `orion/plugins/` ichidagi fayllarda ko'ring.
+    See ``orion/plugins/`` for examples.
     """
 
     name: str
@@ -15,10 +14,10 @@ class Tool:
     required: list[str] = field(default_factory=list)
 
     def execute(self, **kwargs) -> dict:
-        raise NotImplementedError(f"Tool '{self.name}' da execute() metodi yozilmagan")
+        raise NotImplementedError(f"Tool '{self.name}' does not implement execute()")
 
     def to_schema(self) -> dict:
-        """OpenAI/DeepSeek function-calling sxemasini qaytaradi."""
+        """Return the OpenAI/DeepSeek function-calling schema."""
 
         return {
             "type": "function",
@@ -35,7 +34,7 @@ class Tool:
 
 
 class ToolRegistry:
-    """Barcha tool'larni saqlaydi va ularni chaqirishni boshqaradi."""
+    """Holds all tools and handles lookup and safe execution."""
 
     def __init__(self):
         self._tools: dict[str, Tool] = {}

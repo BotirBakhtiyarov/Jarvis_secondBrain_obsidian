@@ -2,7 +2,12 @@ import subprocess
 
 import pytest
 
-from orion.plugins.git_plugin import GitCommitTool, GitLogTool, GitStatusTool
+from orion.plugins.git_plugin import (
+    GitCommitTool,
+    GitCreatePrTool,
+    GitLogTool,
+    GitStatusTool,
+)
 
 
 @pytest.fixture
@@ -43,3 +48,41 @@ def test_git_commit_requires_message(repo):
     (repo / "a.txt").write_text("hello\n", encoding="utf-8")
     res = GitCommitTool(repo).execute("")
     assert "error" in res
+
+
+def _gh_fake_run(calls):
+    """Stub that records every git/gh invocation."""
+
+    def fake_run(cmd, *args, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout="https://github.com/x/pull/1\n", stderr=""
+        )
+
+    return fake_run
+
+
+def test_git_create_pr_runs_gh_directly(repo, monkeypatch):
+    calls: list[list[str]] = []
+    monkeypatch.setattr("orion.plugins.git_plugin.subprocess.run", _gh_fake_run(calls))
+
+    tool = GitCreatePrTool(repo)
+    res = tool.execute("My PR title", body="body", base="main")
+
+    assert res["success"] is True
+    assert res["url"] == "https://github.com/x/pull/1"
+
+    # gh must run directly, not via `git` — regression guard for the old bug
+    pr_call = next(cmd for cmd in calls if cmd[0] == "gh" and cmd[1:3] == ["pr", "create"])
+    assert pr_call == [
+        "gh",
+        "pr",
+        "create",
+        "--title",
+        "My PR title",
+        "--body",
+        "body",
+        "--base",
+        "main",
+    ]
+    assert all(cmd[0] != "git" or cmd[1:2] != ["gh"] for cmd in calls)

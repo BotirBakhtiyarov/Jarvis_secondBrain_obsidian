@@ -61,14 +61,13 @@ class SaveMemoryTool(Tool):
         if path.exists():
             return self.vault.append(note_path, self._dated(content))
 
-        # Xuddi shu sarlavhali mavjud nota bormi — dublikat oldini olish
+        # Same-title note exists elsewhere — append to it (no duplicates)
         results = self.vault.search(safe_title, limit=3)
         for res in results:
             stem = res["path"].rsplit("/", 1)[-1].removesuffix(".md").lower()
             if stem == safe_title.lower():
                 return self.vault.append(res["path"], self._dated(content))
 
-        # Yangi nota: frontmatter + kontent + bog'langan notalar
         tags = [t.strip().lower() for t in folder.split("/") if t.strip()]
         related = self.vault.find_related(safe_title, limit=5, exclude=note_path)
 
@@ -82,7 +81,7 @@ class SaveMemoryTool(Tool):
 
         result = self.vault.create(note_path, body)
 
-        # Ikki tomonlama bog'lanish: related notalarga backlink qo'sh.
+        # Add backlinks to related notes for a two-way graph.
         if result.get("success") and related:
             result["backlinks"] = self.vault.add_backlinks(note_path, related)
 

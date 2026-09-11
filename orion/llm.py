@@ -8,11 +8,7 @@ def chat_stream(
     tools: list | None,
     on_text=None,
 ):
-    """DeepSeek bilan streaming chat.
-
-    Matn bo'laklarini `on_text` orqali beradi, yakunda to'plangan
-    tool_calls va token usage'ni qaytaradi.
-    """
+    """Streamed chat: text chunks go through ``on_text``; returns tool_calls and token usage."""
 
     kwargs: dict = {
         "model": model,
@@ -77,7 +73,7 @@ def chat_stream(
 
 
 def chat_once(client: OpenAI, model: str, messages: list):
-    """Bir martalik (streamingsiz) chat — masalan /compact uchun."""
+    """One-shot (non-streaming) chat, e.g. for /compact."""
 
     response = client.chat.completions.create(
         model=model,

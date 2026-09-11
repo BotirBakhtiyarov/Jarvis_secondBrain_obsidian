@@ -1,12 +1,8 @@
-"""Semantik (vektor) qidiruv — optional.
+"""Optional semantic (vector) search backed by fastembed (ONNX, no torch).
 
-`fastembed` o'rnatilgan bo'lsa ishlaydi (ONNX asosida, torch'siz). Indeks
-`reindex` tool orqali quriladi va `.orion_index/` papkasida saqlanadi.
-
-Qidiruv faqat (1) mavjud indeks va (2) mahalliy cache'da mavjud model bilan
-ishlaydi — hech qachon o'z-o'zidan model yuklab olmaydi. Model faqat `reindex`
-paytida yuklab olinadi, bu esa osilib qolish (tarmoq kutilishi) xatosini
-bartaraf etadi.
+The index is built via the ``reindex`` tool and stored in ``.orion_index/``.
+Search only uses an existing index and a locally cached model — it never
+downloads anything by itself (downloads happen only during reindex).
 """
 
 import json
@@ -35,12 +31,7 @@ class SemanticIndex:
 
     @staticmethod
     def model_cached() -> bool:
-        """Embedding modeli mahalliy cache'da mavjudmi — tarmoqsiz tekshiruv.
-
-        fastembed modellarni `~/.cache/fastembed/` (yoki `FASTEMBED_CACHE_PATH`)
-        ichiga saqlaydi. U yerda model papkasi bo'lmasa, qidiruv modelni
-        yuklab olmaydi — aks holda tarmoq bo'lmaganda osilib qoladi.
-        """
+        """True when the model is already in the local cache (offline-safe check)."""
 
         cache = Path(
             os.environ.get(
@@ -76,9 +67,9 @@ class SemanticIndex:
         return self._index_dir() is not None
 
     def build(self, notes: list[tuple[str, str]], progress=None) -> None:
-        """Indeksni quradi (model birinchi marta yuklab olinishi mumkin).
+        """Build the index (may download the model on first run).
 
-        `progress(done, total)` callback'i (ixtiyoriy) UI progress-bar uchun.
+        Optional ``progress(done, total)`` callback drives the UI bar.
         """
 
         import numpy as np
@@ -107,10 +98,10 @@ class SemanticIndex:
         (self.dir / "disabled").unlink(missing_ok=True)
 
     def search(self, query: str, limit: int = 10) -> list[tuple[str, float]]:
-        """Mavjud indeks va cache'dagi model bo'yicha qidiruv.
+        """Search using an existing index and a locally cached model.
 
-        Indeks yoki model cache'da bo'lmasa `[]` qaytaradi — hech qachon
-        tarmoqdan model yuklab olmaydi.
+        Returns ``[]`` when the index or model cache is missing — never
+        downloads anything from the network.
         """
 
         import numpy as np
@@ -140,8 +131,6 @@ class SemanticIndex:
             return []
 
     def status(self) -> dict:
-        """UI/status uchun indeks holati."""
-
         return {
             "available": self.is_available(),
             "model_cached": self.model_cached(),

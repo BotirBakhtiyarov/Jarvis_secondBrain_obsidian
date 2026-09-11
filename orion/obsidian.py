@@ -5,8 +5,7 @@ from pathlib import Path
 MAX_READ_CHARS = 30000
 MAX_EXCERPT_CHARS = 1500
 
-# Vault ichidagi ichki papkalar (indeks, backup, Obsidian konfigi) — bu
-# papkalar notalar ro'yxatidan va qidiruvdan chetlashtiriladi.
+# Internal vault dirs (index, backups, Obsidian config).
 IGNORED_DIRS = {
     ".obsidian",
     ".orion_backups",
@@ -17,21 +16,15 @@ IGNORED_DIRS = {
 
 
 class Vault:
-    """Obsidian Vault ustidagi barcha amallar.
-
-    Path parametr sifatida berilgani uchun test qilish oson va bir
-    nechta vault bilan ham ishlash mumkin.
-    """
+    """All operations on an Obsidian vault (root is injectable for tests)."""
 
     def __init__(self, root: Path):
         self.root = root.expanduser().resolve()
 
-    # ------------------------------------------------------------------
     # Helpers
-    # ------------------------------------------------------------------
 
     def safe_path(self, note_path: str) -> Path:
-        """Path traversal hujumini oldini oladi."""
+        """Resolve a path inside the vault, blocking path traversal."""
 
         path = (self.root / note_path).resolve()
         if self.root not in path.parents and path != self.root:
@@ -44,7 +37,7 @@ class Vault:
         return [p for p in self.root.rglob("*.md") if not (IGNORED_DIRS & set(p.parts))]
 
     def iter_notes(self) -> list[tuple[str, str]]:
-        """Barcha notalarni (path, content) juftliklari sifatida qaytaradi."""
+        """Return all notes as (path, content) pairs."""
 
         out = []
         for note in self.get_all_notes():
@@ -58,7 +51,7 @@ class Vault:
         return note.read_text(encoding="utf-8", errors="ignore")
 
     def _frontmatter(self, content: str) -> dict:
-        """YAML frontmatter'ni oddiy tarzda o'qiydi (qo'shimcha bog'liqliksiz)."""
+        """Parse YAML frontmatter simply (no external YAML dependency)."""
 
         if not content.startswith("---"):
             return {}
@@ -97,7 +90,7 @@ class Vault:
         words: list[str],
         max_chars: int = MAX_EXCERPT_CHARS,
     ) -> str:
-        """Nota ichidan so'rovga eng mos bo'lakni (RAG) qaytaradi."""
+        """Best-matching excerpt inside a note (for RAG)."""
 
         blocks = re.split(r"\n\s*\n", content)
         if not blocks:
@@ -125,12 +118,10 @@ class Vault:
             best = best[:max_chars] + "\n…"
         return best
 
-    # ------------------------------------------------------------------
     # Search
-    # ------------------------------------------------------------------
 
     def search(self, query: str, limit: int = 10) -> list[dict]:
-        """Keyword + (agar mavjud bo'lsa) semantik qidiruv — gibrid."""
+        """Hybrid search: keyword + semantic (when an index exists)."""
 
         keyword = self._keyword_search(query, limit=limit * 3)
 
@@ -166,7 +157,7 @@ class Vault:
         return out[:limit]
 
     def _keyword_search(self, query: str, limit: int = 10) -> list[dict]:
-        """Note nomi, taglari va kontenti bo'yicha reytingli qidiruv."""
+        """Ranked search by note name, tags and content."""
 
         query_lower = query.lower().strip()
         words = [w for w in re.findall(r"[a-z0-9_']+", query_lower) if len(w) >= 3]
@@ -222,9 +213,7 @@ class Vault:
         results.sort(key=lambda r: r["score"], reverse=True)
         return results[:limit]
 
-    # ------------------------------------------------------------------
     # CRUD
-    # ------------------------------------------------------------------
 
     def read(self, note_path: str) -> dict:
         path = self.safe_path(note_path)
@@ -302,7 +291,7 @@ class Vault:
         return {"success": True, "action": "appended", "path": note_path}
 
     def move(self, note_path: str, new_path: str) -> dict:
-        """Notani boshqa papkaga ko'chiradi (Inbox triage uchun)."""
+        """Move a note to another folder (Inbox triage)."""
 
         src = self.safe_path(note_path)
         if not src.exists():
@@ -342,12 +331,10 @@ class Vault:
             "truncated": total > limit,
         }
 
-    # ------------------------------------------------------------------
     # Note design helpers (frontmatter + wikilinks)
-    # ------------------------------------------------------------------
 
     def build_frontmatter(self, title: str, tags: list[str] | None = None) -> str:
-        """Obsidian YAML frontmatter — graph va qidiruvni chiroyli qiladi."""
+        """Build Obsidian YAML frontmatter (created date + tags)."""
 
         created = datetime.now().strftime("%Y-%m-%d")
         lines = ["---", f'title: "{title}"', f"created: {created}"]
@@ -362,17 +349,16 @@ class Vault:
         return f"[[{Path(note_path).stem}]]"
 
     def find_related(self, query: str, limit: int = 5, exclude: str = "") -> list[str]:
-        """So'rovga mos mavjud notalarning yo'llarini qaytaradi."""
+        """Return paths of existing notes matching the query."""
 
         results = self.search(query, limit=limit)
         return [r["path"] for r in results if r["path"] != exclude]
 
     def add_backlinks(self, source_path: str, target_paths: list[str]) -> list[str]:
-        """Har bir target notaga manba nota uchun backlink qo'shadi.
+        """Add a backlink to each target note for the source note.
 
-        Ikki tomonlama bog'lanish: manba nota `[[Target]]` ko'rinishida
-        bog'lagan bo'lsa, target nota `## Backlinks` bo'limida `[[Source]]`
-        qaytaradi. Idempotent — mavjud link qayta qo'shilmaydi.
+        Two-way linking: if the source links ``[[Target]]``, the target gets
+        a ``## Backlinks`` section with ``[[Source]]``. Idempotent.
         """
 
         source_stem = Path(source_path).stem

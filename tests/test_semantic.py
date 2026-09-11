@@ -26,7 +26,7 @@ def test_semantic_ranking_and_cache_with_fake_embeddings(tmp_path, monkeypatch):
             return out
 
     monkeypatch.setattr(fastembed, "TextEmbedding", FakeEmbedding)
-    # Haqiqiy cache tekshiruvini bypass qilamiz — test soxta embedding ishlatadi.
+    # bypass the real cache check — the test uses fake embeddings
     monkeypatch.setattr(SemanticIndex, "model_cached", staticmethod(lambda: True))
 
     notes = [
@@ -62,8 +62,7 @@ def test_semantic_index_build_and_search(tmp_path):
         index.build(notes)
         results = index.search("vehicles with wheels", limit=2)
     except Exception as exc:  # noqa: BLE001
-        # Birinchi ishga tushirishda model HuggingFace'dan yuklab olinadi;
-        # tarmoq mavjud bo'lmasa testni o'tkazib yuboramiz (kod emas, muhit).
+        # the model downloads from HuggingFace on first run; skip when offline
         pytest.skip(f"embedding model unavailable (network): {exc}")
 
     paths = [p for p, _ in results]

@@ -13,10 +13,11 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 
-from orion import ui
+from orion import i18n, ui
 from orion.agent import Plan, PlanTool
 from orion.config import Config, load_config
 from orion.llm import chat_once, chat_stream
+from orion.mcp import close_all as mcp_close_all
 from orion.memory import (
     list_sessions,
     load_latest,
@@ -29,7 +30,7 @@ from orion.prompts import SYSTEM_PROMPT
 from orion.tools import ToolRegistry
 from orion.ui import console
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 
@@ -56,21 +57,43 @@ SLASH_COMMANDS = [
 
 ORION_MD_TEMPLATE = """# ORION.md
 
-Bu fayl ORION uchun loyiha ko'rsatmalari. Sessiya boshida avtomatik o'qiladi.
+This file holds project instructions for ORION. It is read automatically at
+the start of every session.
 
-## Loyiha haqida
-<!-- Loyihangiz nima ekanini qisqa tasvirlang -->
+## About this project
+<!-- Briefly describe what this project does -->
 
-## Kodlash standartlari
-<!-- Afzal ko'rgan uslub, konvensiyalar, cheklovlar -->
+## Coding standards
+<!-- Preferred style, conventions and constraints -->
 
-## Buyruqlar
-<!-- test/build ishga tushirish buyruqlari -->
+## Commands
+<!-- How to run tests / builds -->
 """
 
 
+def trim_history(messages: list[dict], max_history: int) -> list[dict]:
+    """Trim to the last ``max_history`` messages, keeping system messages.
+
+    Never splits a tool-call chain: if the cut lands on a ``tool`` message,
+    it moves back to the start of the assistant ``tool_calls`` block.
+    """
+
+    if max_history <= 0 or len(messages) <= max_history + 1:
+        return messages
+
+    system_msgs = [m for m in messages if m.get("role") == "system"]
+    tail = messages[len(system_msgs) :]
+    if len(tail) <= max_history:
+        return messages
+
+    cut = len(tail) - max_history
+    while cut > 0 and tail[cut].get("role") == "tool":
+        cut -= 1
+    return system_msgs + tail[cut:]
+
+
 class Session:
-    """Joriy sessiya holati: tokenlar, narx va permission rejimi."""
+    """Current session state: tokens, cost and permission mode."""
 
     def __init__(self, config):
         self.input_tokens = 0
@@ -96,7 +119,7 @@ class Session:
 
 
 class JarvisCompleter(Completer):
-    """`/` buyruqlar va `@` fayl yo'llari uchun avtomatik to'ldirish."""
+    """``/`` commands and ``@`` file paths autocomplete."""
 
     def __init__(self):
         self.workspace = None
@@ -144,9 +167,7 @@ class JarvisCompleter(Completer):
 def parse_args(argv):
     argv = list(argv)
 
-    # `orion config [--init|--edit]` sub-buyrug'i. Subparser ishlatmaymiz,
-    # chunki u `query` pozitsion argumentini egallab qo'yadi (`orion "savol"`
-    # ishlamay qoladi). Buning o'rniga birinchi argumentni qo'lda aniqlaymiz.
+    # `config` is parsed manually — a subparser would swallow the positional query.
     command = None
     config_init = False
     config_edit = False
@@ -161,41 +182,39 @@ def parse_args(argv):
         prog="orion",
         description="ORION — Operational Reasoning, Intelligence & Orchestration Network",
     )
-    parser.add_argument(
-        "query", nargs="*", help="Boshlang'ich so'rov (interaktiv sessiya boshlaydi)"
-    )
+    parser.add_argument("query", nargs="*", help="initial query (starts an interactive session)")
     parser.add_argument(
         "-p",
         "--print",
         action="store_true",
-        help="Javobni chiqarib chiqish (non-interaktiv)",
+        help="print the answer and exit (non-interactive)",
     )
     parser.add_argument(
         "-c",
         "--continue",
         dest="resume_last",
         action="store_true",
-        help="Eng oxirgi sessiyani davom ettirish",
+        help="continue the latest session",
     )
     parser.add_argument(
         "-r",
         "--resume",
         metavar="ID",
-        help="ID bo'yicha sessiyani davom ettirish",
+        help="resume a session by id",
     )
     parser.add_argument(
         "-v",
         "--version",
         action="store_true",
-        help="Versiyani ko'rsatish",
+        help="show version",
     )
-    parser.add_argument("--model", help="DeepSeek modelini almashtirish")
-    parser.add_argument("--vault", help="Obsidian vault path'ni almashtirish")
-    parser.add_argument("--workspace", help="Workspace (loyihalar) root'ini almashtirish")
+    parser.add_argument("--model", help="override the DeepSeek model")
+    parser.add_argument("--vault", help="override the Obsidian vault path")
+    parser.add_argument("--workspace", help="override the workspace (projects) root")
     parser.add_argument(
         "--dangerously-skip-permissions",
         action="store_true",
-        help="Buyruqlar uchun ruxsat so'rovlarini o'tkazib yuborish",
+        help="skip permission prompts for commands",
     )
 
     args = parser.parse_args(argv)
@@ -217,6 +236,12 @@ def build_system(config: Config) -> str:
         "to obtain the precise current time instead of guessing.\n"
     )
 
+    system += (
+        f"\nInterface language: {i18n.get_language()}. "
+        "Reply in the language the user writes in — it may differ from the "
+        "interface language.\n"
+    )
+
     orion_md = config.workspace / "ORION.md"
     if orion_md.exists():
         try:
@@ -228,7 +253,7 @@ def build_system(config: Config) -> str:
 
 
 def expand_mentions(text: str, workspace: Path) -> str:
-    """`@path` ni fayl kontenti bilan almashtiradi (mavjud fayl bo'lsa)."""
+    """Replace ``@path`` mentions with the file's content (if it exists)."""
 
     def repl(match):
         rel = match.group(1)
@@ -245,9 +270,9 @@ def expand_mentions(text: str, workspace: Path) -> str:
 
 
 def confirm_command(label: str, session: Session) -> bool:
-    console.print(f"[yellow]⚡ Allow?[/yellow] [bold]{label}[/bold]")
+    console.print(f"[yellow]{i18n.t('allow')}[/yellow] [bold]{label}[/bold]")
     while True:
-        ans = console.input("[dim]  (y/n/always) [/dim]").strip().lower()
+        ans = console.input(f"[dim]  {i18n.t('confirm_hint')} [/dim]").strip().lower()
         if ans in ("y", "yes"):
             return True
         if ans in ("n", "no"):
@@ -263,7 +288,7 @@ def run_turn(client, config, registry, messages, session, interactive=True):
         status = {"obj": None}
 
         if interactive:
-            status["obj"] = console.status("Thinking…", spinner="dots")
+            status["obj"] = console.status(i18n.t("thinking"), spinner="dots")
             status["obj"].start()
 
         def on_text(chunk):
@@ -284,7 +309,11 @@ def run_turn(client, config, registry, messages, session, interactive=True):
 
         try:
             text, tool_calls, _, usage = chat_stream(
-                client, config.model, messages, registry.schema(), on_text=on_text
+                client,
+                config.model,
+                trim_history(messages, config.max_history),
+                registry.schema(),
+                on_text=on_text,
             )
         finally:
             if status["obj"] is not None:
@@ -329,7 +358,7 @@ def run_turn(client, config, registry, messages, session, interactive=True):
                     else json.dumps(arguments, ensure_ascii=False)
                 )
                 if not confirm_command(label, session):
-                    result = {"error": "User denied permission"}
+                    result = {"error": i18n.t("denied")}
                 else:
                     result = registry.execute(name, arguments)
             else:
@@ -347,86 +376,84 @@ def run_turn(client, config, registry, messages, session, interactive=True):
             )
 
 
-# ----------------------------------------------------------------------
 # Slash command handlers
-# ----------------------------------------------------------------------
 
 
 def cmd_help(ctx):
     from rich.table import Table
 
     console.print()
-    table = Table(title="Slash commands", border_style="cyan")
+    table = Table(title=i18n.t("help_title"), border_style="cyan")
     table.add_column("Command", style="green", no_wrap=True)
     table.add_column("What it does")
 
-    for c, desc in [
-        ("/help", "bu yordamni ko'rsatish"),
-        ("/clear", "suhbat kontekstini tozalash"),
-        ("/model [name]", "modelni ko'rsatish yoki almashtirish"),
-        ("/cost", "token va xarajatni ko'rsatish"),
-        ("/status", "joriy konfiguratsiyani ko'rsatish"),
-        ("/memory", "Obsidian xotirasidagi so'nggi notalar"),
-        ("/compact", "suhbatni qisqartirib kontekstni tejash"),
-        ("/add-dir <path>", "workspace papkasini almashtirish"),
-        ("/review", "workspace'dagi git status/diff"),
-        ("/init", "ORION.md ko'rsatmalar faylini yaratish"),
-        ("/config [init|edit]", "konfiguratsiyani ko'rish yoki sozlash"),
-        ("/permissions [on|bypass]", "ruxsat rejimini ko'rish/o'zgartirish"),
-        ("/resume [id]", "sessiyalarni ko'rish yoki davom ettirish"),
-        ("/tools", "mavjud tool'larni tavsifi bilan ko'rsatish"),
-        ("/exit", "chiqish"),
-        ("/version", "versiyani ko'rsatish"),
+    for c, key in [
+        ("/help", "help.help"),
+        ("/clear", "help.clear"),
+        ("/model [name]", "help.model"),
+        ("/cost", "help.cost"),
+        ("/status", "help.status"),
+        ("/memory", "help.memory"),
+        ("/compact", "help.compact"),
+        ("/add-dir <path>", "help.add_dir"),
+        ("/review", "help.review"),
+        ("/init", "help.init"),
+        ("/config [init|edit]", "help.config"),
+        ("/permissions [on|bypass]", "help.permissions"),
+        ("/resume [id]", "help.resume"),
+        ("/tools", "help.tools"),
+        ("/exit", "help.exit"),
+        ("/version", "help.version"),
     ]:
-        table.add_row(c, desc)
+        table.add_row(c, i18n.t(key))
 
     console.print(table)
-    console.print("[dim]@file — fayl kontentini so'rovga qo'shish. ↑/↓ — tarix.[/dim]\n")
+    console.print(f"[dim]{i18n.t('help.hint')}[/dim]\n")
 
 
 def cmd_clear(ctx):
     ctx["messages"][:] = [ctx["messages"][0]]
-    console.print("[green]✓ Context cleared.[/green]")
+    console.print(f"[green]{i18n.t('clear_done')}[/green]")
 
 
 def cmd_model(ctx):
     args = ctx["args"]
     if args:
         ctx["config"].model = args[0]
-        console.print(f"[green]✓ Model:[/green] {ctx['config'].model}")
+        console.print(f"[green]{i18n.t('model_set', model=ctx['config'].model)}[/green]")
     else:
-        console.print(f"[cyan]Model:[/cyan] {ctx['config'].model}")
-        console.print("[dim]Available: deepseek-chat, deepseek-reasoner[/dim]")
+        console.print(f"[cyan]{i18n.t('model_is', model=ctx['config'].model)}[/cyan]")
+        console.print(f"[dim]{i18n.t('models_available')}[/dim]")
 
 
 def cmd_cost(ctx):
     s = ctx["session"]
     c = ctx["config"]
     console.print(
-        f"[cyan]Tokens:[/cyan] in {ui.format_number(s.input_tokens)} · "
-        f"out {ui.format_number(s.output_tokens)} · "
-        f"total {ui.format_number(s.total_tokens)}"
+        f"[cyan]{i18n.t('tokens_line', i=ui.format_number(s.input_tokens), o=ui.format_number(s.output_tokens), t=ui.format_number(s.total_tokens))}[/cyan]"
     )
+    cost = f"{s.cost(c):.4f}"
     console.print(
-        f"[cyan]Cost:[/cyan] ${s.cost(c):.4f} "
-        f"[dim](in ${c.input_price}/M · out ${c.output_price}/M)[/dim]"
+        f"[cyan]{i18n.t('cost_line', c=cost)}[/cyan] "
+        f"[dim]{i18n.t('cost_rates', i=c.input_price, o=c.output_price)}[/dim]"
     )
 
 
 def cmd_status(ctx):
     c = ctx["config"]
     r = ctx["registry"]
-    mode = "bypass (skip prompts)" if ctx["session"].bypass else "ask for commands"
+    mode = i18n.t("perm_bypass") if ctx["session"].bypass else i18n.t("perm_ask")
     ui.print_key_value(
         [
             ("Model", c.model),
             ("Vault", str(c.obsidian_vault)),
             ("Workspace", str(c.workspace)),
             ("History", str(c.history_path)),
+            (i18n.t("language"), i18n.get_language()),
             ("Tools", ", ".join(r.names())),
-            ("Permission mode", mode),
+            (i18n.t("permission_mode"), mode),
         ],
-        title="Status",
+        title=i18n.t("status_title"),
     )
 
 
@@ -437,22 +464,20 @@ def cmd_memory(ctx):
     if "error" in res:
         console.print(f"[red]{res['error']}[/red]")
         return
-    console.print(f"[cyan]Recent notes ({res['total']} total):[/cyan]")
+    console.print(f"[cyan]{i18n.t('recent_notes', n=res['total'])}[/cyan]")
     for n in res["notes"]:
         console.print(f"  [dim]{n}[/dim]")
-    console.print(
-        "[dim]Memory rules: muhim ma'lumot save_memory orqali saqlanadi; oddiy chat saqlanmaydi.[/dim]"
-    )
+    console.print(f"[dim]{i18n.t('memory_rules')}[/dim]")
 
 
 def cmd_compact(ctx):
     c = ctx["config"]
     messages = ctx["messages"]
     if len(messages) <= 3:
-        console.print("[dim]Nothing to compact.[/dim]")
+        console.print(f"[dim]{i18n.t('nothing_to_compact')}[/dim]")
         return
 
-    with console.status("[cyan]Compacting…[/cyan]"):
+    with console.status(f"[cyan]{i18n.t('compacting')}[/cyan]"):
         summary, _ = chat_once(
             ctx["client"],
             c.model,
@@ -473,47 +498,47 @@ def cmd_compact(ctx):
         messages[0],
         {"role": "user", "content": "[Conversation summary]\n" + (summary or "")},
     ]
-    console.print("[green]✓ Compacted.[/green]")
+    console.print(f"[green]{i18n.t('compacted')}[/green]")
 
 
 def cmd_add_dir(ctx):
     c = ctx["config"]
     if not ctx["args"]:
-        console.print("[red]Usage: /add-dir <path>[/red]")
+        console.print(f"[red]{i18n.t('usage_add_dir')}[/red]")
         return
     path = Path(ctx["args"][0]).expanduser().resolve()
     if not path.is_dir():
-        console.print(f"[red]Not a directory: {path}[/red]")
+        console.print(f"[red]{i18n.t('not_a_directory', path=path)}[/red]")
         return
     c.workspace = path
     ctx["registry"] = rebuild_registry(c)
     ctx["completer"].set_workspace(path)
-    console.print(f"[green]✓ Workspace:[/green] {path}")
+    console.print(f"[green]{i18n.t('workspace_set', path=path)}[/green]")
 
 
 def cmd_review(ctx):
     ws = ctx["config"].workspace
     if not (ws / ".git").exists():
-        console.print(f"[yellow]Not a git repository:[/yellow] {ws}")
+        console.print(f"[yellow]{i18n.t('not_git_repo', path=ws)}[/yellow]")
         return
 
     status = subprocess.run(
         ["git", "status", "--short"], cwd=str(ws), capture_output=True, text=True
     )
     diff = subprocess.run(["git", "diff", "--stat"], cwd=str(ws), capture_output=True, text=True)
-    console.print("[cyan]git status:[/cyan]")
-    console.print(status.stdout or "(clean)", markup=False)
-    console.print("[cyan]git diff --stat:[/cyan]")
-    console.print(diff.stdout or "(no changes)", markup=False)
+    console.print(f"[cyan]{i18n.t('git_status')}[/cyan]")
+    console.print(status.stdout or f"({i18n.t('git_clean')})", markup=False)
+    console.print(f"[cyan]{i18n.t('git_diff_stat')}[/cyan]")
+    console.print(diff.stdout or f"({i18n.t('no_changes')})", markup=False)
 
 
 def cmd_init(ctx):
     path = ctx["config"].workspace / "ORION.md"
     if path.exists():
-        console.print(f"[dim]Already exists: {path}[/dim]")
+        console.print(f"[dim]{i18n.t('already_exists', path=path)}[/dim]")
         return
     path.write_text(ORION_MD_TEMPLATE, encoding="utf-8")
-    console.print(f"[green]✓ Created[/green] {path}")
+    console.print(f"[green]{i18n.t('created', path=path)}[/green]")
 
 
 def cmd_permissions(ctx):
@@ -522,38 +547,38 @@ def cmd_permissions(ctx):
         s.bypass = True
     elif ctx["args"] and ctx["args"][0] in ("on", "ask", "default"):
         s.bypass = False
-    mode = "bypass (skip prompts)" if s.bypass else "ask for commands"
-    console.print(f"[cyan]Permission mode:[/cyan] {mode}")
+    mode = i18n.t("perm_bypass") if s.bypass else i18n.t("perm_ask")
+    console.print(f"[cyan]{i18n.t('permission_mode')}:[/cyan] {mode}")
 
 
 def cmd_resume(ctx):
     sessions = list_sessions(ctx["config"].history_path)
     if not sessions:
-        console.print("[dim]No saved sessions.[/dim]")
+        console.print(f"[dim]{i18n.t('no_saved_sessions')}[/dim]")
         return
 
     if ctx["args"]:
         hist = load_session(ctx["config"].history_path, ctx["args"][0])
         if hist is None:
-            console.print("[red]Session not found.[/red]")
+            console.print(f"[red]{i18n.t('session_not_found')}[/red]")
             return
         ctx["messages"][:] = [ctx["messages"][0], *hist]
-        console.print("[green]✓ Resumed.[/green]")
+        console.print(f"[green]{i18n.t('resumed')}[/green]")
         return
 
-    console.print("[cyan]Saved sessions:[/cyan]")
+    console.print(f"[cyan]{i18n.t('saved_sessions')}[/cyan]")
     for s in sessions:
         console.print(
             f"  [green]{s['id']}[/green]  {s['first']}  [dim]({s['messages']} msgs)[/dim]"
         )
-    console.print("[dim]Resume: /resume <id>[/dim]")
+    console.print(f"[dim]{i18n.t('resume_hint')}[/dim]")
 
 
 def cmd_tools(ctx):
     from rich.table import Table
 
     console.print()
-    table = Table(title="Available tools", border_style="cyan")
+    table = Table(title=i18n.t("available_tools"), border_style="cyan")
     table.add_column("Tool", style="green", no_wrap=True)
     table.add_column("Description")
     for name, summary in ctx["registry"].describe():
@@ -563,12 +588,10 @@ def cmd_tools(ctx):
 
 
 def cmd_version(ctx):
-    console.print(f"orion {VERSION}")
+    console.print(i18n.t("version", version=VERSION))
 
 
-# ----------------------------------------------------------------------
 # Config command (slash + `orion config` CLI)
-# ----------------------------------------------------------------------
 
 
 def _find_env_example() -> Path | None:
@@ -583,6 +606,9 @@ def _find_env_example() -> Path | None:
 
 
 def show_config_table(config):
+    # CLI calls also set the interface language.
+    i18n.set_language(config.language)
+
     ui.print_key_value(
         [
             ("Model", config.model),
@@ -591,39 +617,40 @@ def show_config_table(config):
             ("Workspace", str(config.workspace)),
             ("History", str(config.history_path)),
             ("Max history", str(config.max_history)),
+            (i18n.t("language"), i18n.get_language()),
             ("Input price", f"${config.input_price}/M"),
             ("Output price", f"${config.output_price}/M"),
             ("DeepSeek key", "set" if config.api_key else "MISSING"),
             ("Tavily key", "set" if config.tavily_api_key else "not set"),
         ],
-        title="Configuration",
+        title=i18n.t("config_title"),
     )
 
 
 def run_config_init():
     env = Path.cwd() / ".env"
     if env.exists():
-        console.print(f"[yellow].env already exists:[/yellow] {env}")
+        console.print(f"[yellow]{i18n.t('env_exists', path=env)}[/yellow]")
         return
 
     template = _find_env_example()
     if template is None:
-        console.print("[red]No .env.example found to copy from.[/red]")
+        console.print(f"[red]{i18n.t('no_env_example')}[/red]")
         return
 
     env.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
-    console.print(f"[green]✓ Created[/green] {env} [dim](from {template.name})[/dim]")
-    console.print("[dim]Fill in DEEPSEEK_API_KEY and OBSIDIAN_VAULT.[/dim]")
+    console.print(f"[green]{i18n.t('created_from', path=env, name=template.name)}[/green]")
+    console.print(f"[dim]{i18n.t('fill_env')}[/dim]")
 
 
 def run_config_edit():
     env = Path.cwd() / ".env"
     if not env.exists():
-        console.print("[yellow].env not found. Run: orion config --init[/yellow]")
+        console.print(f"[yellow]{i18n.t('env_not_found')}[/yellow]")
         return
 
     editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi"
-    console.print(f"[dim]Opening {env} with {editor}…[/dim]")
+    console.print(f"[dim]{i18n.t('opening_env', path=env, editor=editor)}[/dim]")
     subprocess.call([editor, str(env)])
 
 
@@ -638,9 +665,7 @@ def run_config_command(args):
         except ValueError:
             config = None
         if config is None:
-            console.print(
-                "[yellow]OBSIDIAN_VAULT is not set yet — run: orion config --init[/yellow]"
-            )
+            console.print(f"[yellow]{i18n.t('vault_not_set')}[/yellow]")
             return
         show_config_table(config)
 
@@ -683,7 +708,7 @@ def handle_slash(line: str, ctx: dict):
     if handler:
         handler(ctx)
     else:
-        console.print(f"[yellow]Unknown command: /{name}. Type /help[/yellow]")
+        console.print(f"[yellow]{i18n.t('unknown_command', name=name)}[/yellow]")
 
 
 def rebuild_registry(config):
@@ -693,14 +718,14 @@ def rebuild_registry(config):
 
 
 def print_cost_summary(session: Session, config):
+    cost = f"{session.cost(config):.4f}"
     console.print(
-        f"[dim]Tokens: {ui.format_number(session.total_tokens)} · "
-        f"Cost: ${session.cost(config):.4f}[/dim]"
+        f"[dim]{i18n.t('cost_summary', t=ui.format_number(session.total_tokens), c=cost)}[/dim]"
     )
 
 
 def auto_memory(client, config, session, messages):
-    """Sessiya oxirida suhbatni xulosalab, muhim faktlarni Obsidian'ga saqlaydi."""
+    """Summarize the session at exit and store key facts in Obsidian."""
 
     if not any(m.get("role") == "assistant" and m.get("content") for m in messages):
         return None
@@ -752,7 +777,7 @@ def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.version:
-        print(f"orion {VERSION}")
+        print(i18n.t("version", version=VERSION))
         return
 
     if args.command == "config":
@@ -764,12 +789,15 @@ def main(argv=None):
             {"model": args.model, "vault": args.vault, "workspace": args.workspace}
         )
     except ValueError as err:
-        console.print(f"[bold red]❌ {err}[/bold red]")
+        console.print(f"[bold red]{i18n.t('error_prefix', msg=err)}[/bold red]")
         raise SystemExit(1) from err
 
     if not config.api_key:
         console.print("[bold red]❌ DEEPSEEK_API_KEY not found! Check your .env file.[/bold red]")
         raise SystemExit(1)
+
+    # English by default; ORION_LANG=auto follows the user's language.
+    i18n.set_language(config.language)
 
     client = OpenAI(api_key=config.api_key, base_url=config.base_url)
 
@@ -782,12 +810,22 @@ def main(argv=None):
     session = Session(config)
     session.bypass = args.dangerously_skip_permissions
 
+    initial_query = " ".join(args.query or []).strip()
+
+    if args.print and not initial_query and not sys.stdin.isatty():
+        initial_query = sys.stdin.read().strip()
+
+    if config.language == "auto" and initial_query:
+        detected = i18n.detect_language(initial_query)
+        if detected:
+            i18n.set_language(detected)
+
     messages = [{"role": "system", "content": build_system(config)}]
 
     if args.resume:
         hist = load_session(config.history_path, args.resume)
         if hist is None:
-            console.print(f"[red]Session '{args.resume}' not found.[/red]")
+            console.print(f"[red]{i18n.t('session_not_found_id', id=args.resume)}[/red]")
             raise SystemExit(1)
         messages.extend(hist)
     elif args.resume_last:
@@ -795,14 +833,8 @@ def main(argv=None):
         if hist:
             messages.extend(hist)
         else:
-            console.print("[dim]No previous session — starting fresh.[/dim]")
+            console.print(f"[dim]{i18n.t('no_previous')}[/dim]")
 
-    initial_query = " ".join(args.query or []).strip()
-
-    if args.print and not initial_query and not sys.stdin.isatty():
-        initial_query = sys.stdin.read().strip()
-
-    # Non-interaktiv rejim
     if args.print:
         if initial_query:
             messages.append({"role": "user", "content": initial_query})
@@ -811,14 +843,16 @@ def main(argv=None):
         except KeyboardInterrupt:
             pass
         except Exception as err:  # noqa: BLE001
-            console.print(f"[red]Error: {err}[/red]")
+            console.print(f"[red]{err}[/red]")
         save_session(config.history_path, messages)
+        mcp_close_all()
         return
 
-    # Interaktiv rejim
     ui.print_banner(VERSION)
-    console.print(f"[dim]Model {config.model} · Workspace {config.workspace}[/dim]")
-    console.print("[dim]Type /help for commands · @file to include a file[/dim]")
+    console.print(
+        f"[dim]{i18n.t('banner_line', model=config.model, workspace=config.workspace)}[/dim]"
+    )
+    console.print(f"[dim]{i18n.t('banner_hint')}[/dim]")
 
     completer = JarvisCompleter()
     completer.set_workspace(config.workspace)
@@ -840,10 +874,11 @@ def main(argv=None):
 
     if initial_query:
         messages.append({"role": "user", "content": initial_query})
+        ui.print_user_message(initial_query)
         try:
             run_turn(client, config, ctx["registry"], messages, session, interactive=True)
         except Exception as err:  # noqa: BLE001
-            console.print(f"\n[red]❌ Error: {err}[/red]")
+            console.print(f"\n[red]{i18n.t('error_prefix', msg=err)}[/red]")
         if plan.steps:
             ui.print_plan(plan.steps)
 
@@ -866,16 +901,24 @@ def main(argv=None):
                 continue
 
             line = expand_mentions(line, config.workspace)
+
+            # In auto mode, follow the user's language.
+            if config.language == "auto":
+                detected = i18n.detect_language(line)
+                if detected:
+                    i18n.set_language(detected)
+
             messages.append({"role": "user", "content": line})
+            ui.print_user_message(line)
 
             try:
                 run_turn(client, config, ctx["registry"], messages, session, interactive=True)
             except KeyboardInterrupt:
-                console.print("\n[dim](interrupted)[/dim]")
+                console.print(f"\n[dim]{i18n.t('interrupted')}[/dim]")
                 if messages and messages[-1].get("role") == "user":
                     messages.pop()
             except Exception as err:  # noqa: BLE001
-                console.print(f"\n[red]❌ Error: {err}[/red]")
+                console.print(f"\n[red]{i18n.t('error_prefix', msg=err)}[/red]")
                 if messages and messages[-1].get("role") == "user":
                     messages.pop()
             if plan.steps:
@@ -883,17 +926,18 @@ def main(argv=None):
 
     finally:
         save_session(config.history_path, messages)
+        mcp_close_all()
         if os.environ.get("ORION_AUTO_MEMORY", "1") != "0":
             try:
                 saved = auto_memory(client, config, session, messages)
                 if saved:
-                    console.print(f"[dim]🧠 Session summary → {saved}[/dim]")
+                    console.print(f"[dim]{i18n.t('session_summary_saved', path=saved)}[/dim]")
             except Exception:  # noqa: BLE001
                 pass
 
     console.print()
     print_cost_summary(session, config)
-    console.print("[cyan]ORION: Goodbye! 👋[/cyan]")
+    console.print(f"[cyan]{i18n.t('goodbye')}[/cyan]")
 
 
 if __name__ == "__main__":

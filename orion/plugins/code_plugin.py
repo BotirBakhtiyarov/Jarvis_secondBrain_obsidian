@@ -139,7 +139,7 @@ class RunCommandTool(Tool):
                 cwd=str(self.ws.root),
             )
         except subprocess.TimeoutExpired:
-            return {"error": f"Command {timeout}s ichida tugamadi"}
+            return {"error": f"Command timed out after {timeout}s"}
         except Exception as err:  # noqa: BLE001
             return {"error": f"{type(err).__name__}: {err}"}
 

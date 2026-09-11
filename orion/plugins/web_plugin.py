@@ -1,9 +1,6 @@
-"""Web search — Tavily (agar API kaliti bo'lsa) yoki DuckDuckGo.
+"""Web search via Tavily (if TAVILY_API_KEY is set) or DuckDuckGo fallback.
 
-Hech qanday qo'shimcha bog'liqlik talab qilmaydi (stdlib `urllib`).
-`TAVILY_API_KEY` `.env` da bo'lsa Tavily ishlatiladi (yuqori sifatli,
-kalit talab qiladi), aks holda DuckDuckGo Instant Answer API (bepul,
-kalitsiz) orqali qidiriladi.
+stdlib-only (``urllib``) — no extra dependencies.
 """
 
 import json

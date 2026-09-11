@@ -8,11 +8,7 @@ def sessions_dir(history_path: Path) -> Path:
 
 
 def _clean_tail(messages: list[dict]) -> list[dict]:
-    """Yarim qolgan tool chaqiruvi bilan tugagan sessiyani tozalaydi.
-
-    Resume qilingan suhbat hech qachon yarim tool chaqiruvidan boshlamasligi
-    uchun oxirgi to'liq assistant javobigacha kesib olinadi.
-    """
+    """Cut a resumed session so it never starts mid tool-call chain."""
 
     cut = None
     for i in range(len(messages) - 1, -1, -1):
@@ -24,7 +20,7 @@ def _clean_tail(messages: list[dict]) -> list[dict]:
 
 
 def save_session(history_path: Path, messages: list[dict]) -> Path:
-    """Suhbatni vaqt belgili sessiya fayliga va latest.json'ga saqlaydi."""
+    """Save the conversation to a timestamped session file and latest.json."""
 
     d = sessions_dir(history_path)
     d.mkdir(parents=True, exist_ok=True)
@@ -47,7 +43,7 @@ def save_session(history_path: Path, messages: list[dict]) -> Path:
 
 
 def load_session(history_path: Path, session_id: str) -> list[dict] | None:
-    """ID yoki ID prefiksi bo'yicha sessiyani yuklaydi."""
+    """Load a session by id or id prefix."""
 
     d = sessions_dir(history_path)
     if not d.exists():

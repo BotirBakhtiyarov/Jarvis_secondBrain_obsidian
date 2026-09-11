@@ -70,7 +70,7 @@ class OpenUrlTool(Tool):
     def execute(self, url):
         url = url.strip()
         if not url.startswith(("http://", "https://")):
-            return {"error": "URL http/https bilan boshlanishi kerak"}
+            return {"error": "URL must start with http:// or https://"}
 
         if sys.platform == "darwin":
             cmd = ["open", url]
@@ -246,7 +246,7 @@ class ScreenshotTool(Tool):
 
         if Path(path).exists():
             return {"success": True, "path": path}
-        return {"error": "Screenshot saqlanmadi", "path": path}
+        return {"error": "Screenshot was not saved", "path": path}
 
     def _linux(self, path):
         for cmd in (
@@ -259,4 +259,4 @@ class ScreenshotTool(Tool):
                 res = _run(cmd, timeout=30)
                 if res.get("exit_code") == 0:
                     return res
-        return {"error": "Screenshot tool topilmadi (scrot/import/grim)"}
+        return {"error": "No screenshot tool found (scrot/import/grim)"}

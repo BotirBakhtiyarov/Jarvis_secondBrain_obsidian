@@ -102,7 +102,7 @@ def test_add_backlinks_two_way_and_idempotent(tmp_path):
     assert "## Backlinks" in content
     assert "[[New idea]]" in content
 
-    # Ikkinchi marta qo'shilmaydi
+    # second add is a no-op (dedup)
     assert vault.add_backlinks("Inbox/New idea.md", ["Projects/Apollo.md"]) == []
 
 

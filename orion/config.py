@@ -4,16 +4,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Avval joriy katalogdagi .env (loyihaga xos), so'ng global ~/.orion/.env.
-# load_dotenv mavjud qiymatni ustidan yozmaydi, shuning uchun loyiha .env
-# ustun turadi, global fayl esa bo'sh joylarni to'ldiradi.
+# Project .env wins over the global one (load_dotenv never overrides).
 load_dotenv()
 load_dotenv(Path.home() / ".orion" / ".env")
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_LANGUAGE = "en"
 
-# USD per 1M tokens (DeepSeek, taxminiy — .env orqali o'zgartiriladi)
+# USD per 1M tokens (approximate; override via .env)
 DEFAULT_INPUT_PRICE = 0.27
 DEFAULT_OUTPUT_PRICE = 1.10
 
@@ -29,15 +28,12 @@ class Config:
     max_history: int
     input_price: float
     output_price: float
+    language: str = "en"
     tavily_api_key: str = ""
 
 
 def load_config(overrides: dict | None = None) -> Config:
-    """.env faylidan konfiguratsiyani yuklaydi.
-
-    CLI flag'lar (`overrides`) .env dan ustun turadi. Workspace ko'rsatilmagan
-    bo'lsa, terminal ochilgan joriy katalog ishlatiladi.
-    """
+    """Load configuration from .env; CLI overrides win."""
 
     overrides = overrides or {}
 
@@ -61,6 +57,7 @@ def load_config(overrides: dict | None = None) -> Config:
         workspace=Path(workspace_raw).expanduser().resolve(),
         history_path=Path(history_raw).expanduser().resolve(),
         max_history=int(os.getenv("ORION_MAX_HISTORY", "50")),
+        language=(os.getenv("ORION_LANG", DEFAULT_LANGUAGE).strip().lower() or DEFAULT_LANGUAGE),
         input_price=float(os.getenv("DEEPSEEK_INPUT_PRICE", DEFAULT_INPUT_PRICE)),
         output_price=float(os.getenv("DEEPSEEK_OUTPUT_PRICE", DEFAULT_OUTPUT_PRICE)),
         tavily_api_key=os.getenv("TAVILY_API_KEY", "").strip(),

@@ -1,12 +1,12 @@
-from orion.mcp import MCPManager, load_mcp_config
+from orion.mcp import MCPManager, load_mcp_config, register_manager
 from orion.tools import Tool
 
 
 def register(registry, config):
-    """MCP serverlarini ulab, ularning tool'larini ro'yxatga oladi.
+    """Connect MCP servers and register their tools.
 
-    `mcp` paketi yoki `~/.orion/mcp.json` konfiguratsiyasi bo'lmasa,
-    jimgina o'tkazib yuboriladi (ORION boshqa tool'lar bilan ishlayveradi).
+    Skipped silently when the ``mcp`` package or ``~/.orion/mcp.json`` is
+    missing — ORION keeps working with its built-in tools.
     """
 
     try:
@@ -21,6 +21,7 @@ def register(registry, config):
     try:
         manager = MCPManager(servers)
         manager.connect()
+        register_manager(manager)
         tools = manager.list_tools()
     except Exception:  # noqa: BLE001
         return

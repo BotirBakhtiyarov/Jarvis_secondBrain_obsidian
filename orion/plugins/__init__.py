@@ -4,16 +4,10 @@ from pathlib import Path
 
 
 def load_plugins(registry, config) -> list[str]:
-    """`orion/plugins/` ichidagi barcha plugin modullarni yuklaydi.
+    """Load every plugin module in ``orion/plugins/``.
 
-    Har bir plugin faylida quyidagi imzoga ega funksiya bo'lishi kerak::
-
-        def register(registry: ToolRegistry, config: Config) -> None:
-            registry.register(MyTool())
-
-    Yangi tool (masalan Telegram bot, Gmail) qo'shish uchun shu papkaga
-    yangi `.py` fayl tashlash kifoya — hech narsani qo'lda import qilish
-    shart emas.
+    Each module defines ``register(registry, config)``. Adding a tool is
+    just dropping a new ``.py`` file here — no manual imports needed.
     """
 
     loaded = []

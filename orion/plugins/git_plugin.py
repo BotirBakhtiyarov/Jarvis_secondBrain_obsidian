@@ -1,7 +1,6 @@
-"""Git integratsiyasi — status/diff/log (o'qish) va commit/PR (yozish).
+"""Git integration: status/diff/log (read-only) and commit/PR (write).
 
-Yozuvchi tool'lar (`git_commit`, `git_create_pr`) `main.py` da sensitive
-ro'yxatda — ishga tushishdan oldin foydalanuvchidan ruxsat so'raladi.
+Write tools (``git_commit``, ``git_create_pr``) are permission-gated.
 """
 
 import subprocess
@@ -33,6 +32,33 @@ def _run(ws, *args, timeout=30):
 def _is_repo(ws):
     res = _run(ws, "rev-parse", "--is-inside-work-tree")
     return res.get("exit_code") == 0
+
+
+def _run_gh(ws, *args, timeout=60):
+    """Run the GitHub CLI directly (NOT through `git`).
+
+    `gh` speaks its own CLI, so it must not be wrapped by `_run`, which
+    prepends `git` to every command.
+    """
+
+    try:
+        proc = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(ws),
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": f"gh command timed out after {timeout}s"}
+    except FileNotFoundError:
+        return {"error": "GitHub CLI (gh) is not installed or not on PATH"}
+
+    return {
+        "exit_code": proc.returncode,
+        "stdout": (proc.stdout or "").strip(),
+        "stderr": (proc.stderr or "").strip(),
+    }
 
 
 def register(registry, config):
@@ -200,7 +226,7 @@ class GitCreatePrTool(Tool):
         if not subprocess.run(["gh", "--version"], capture_output=True, text=True).returncode == 0:
             return {"error": "GitHub CLI (gh) not found — install and authenticate it first"}
 
-        args = ["gh", "pr", "create", "--title", title]
+        args = ["pr", "create", "--title", title]
         if body:
             args += ["--body", body]
         if base:
@@ -208,7 +234,7 @@ class GitCreatePrTool(Tool):
         if head:
             args += ["--head", head]
 
-        res = _run(self.ws, *args, timeout=60)
+        res = _run_gh(self.ws, *args, timeout=60)
         if "error" in res:
             return res
         if res.get("exit_code") != 0:

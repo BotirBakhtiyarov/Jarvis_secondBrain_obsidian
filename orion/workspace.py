@@ -5,10 +5,10 @@ MAX_LIST_ENTRIES = 300
 
 
 class Workspace:
-    """Loyiha fayllari ustidagi xavfsiz amallar.
+    """Sandboxed operations on project files.
 
-    Barcha yo'llar `root` ichida bo'lishi shart — tashqariga chiqish
-    bloklanadi (path traversal himoyasi).
+    All paths must stay inside ``root`` — escapes are blocked
+    (path-traversal protection).
     """
 
     def __init__(self, root: Path):

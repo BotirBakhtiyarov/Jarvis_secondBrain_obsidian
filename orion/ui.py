@@ -1,9 +1,11 @@
-import difflib
 import json
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
+
+from orion import i18n
 
 console = Console()
 
@@ -25,6 +27,12 @@ def print_banner(version: str):
         Panel.fit(f"[bold cyan]ORION {version}[/bold cyan]  {_TAGLINE}", border_style="cyan")
     )
     console.print()
+
+
+def print_user_message(text: str):
+    """Show the user's message in a green panel, distinct from AI output."""
+    label = i18n.t("user_title")
+    console.print(Panel(Text(text), title=label, title_align="left", border_style="green"))
 
 
 def print_tool_call(name: str, arguments: dict):
@@ -50,6 +58,10 @@ def print_tool_result(result: dict):
                 console.print(f"  {line}", markup=False, highlight=False)
         if stderr:
             console.print(f"[yellow]  {stderr}[/yellow]", markup=False, highlight=False)
+        return
+
+    if "diff" in result:
+        render_diff(result.get("diff") or "")
         return
 
     if "moved" in result:
@@ -111,17 +123,9 @@ def print_tool_result(result: dict):
     console.print(json.dumps(result, ensure_ascii=False, default=str))
 
 
-def render_diff(old: str, new: str, path: str):
-    diff = list(
-        difflib.unified_diff(
-            old.splitlines(),
-            new.splitlines(),
-            fromfile=f"a/{path}",
-            tofile=f"b/{path}",
-            lineterm="",
-        )
-    )
-    for line in diff:
+def render_diff(diff_text: str):
+    """Print a unified diff with color: + green, - red, @@ blue, headers dim."""
+    for line in diff_text.splitlines():
         if line.startswith(("+++", "---")):
             console.print(f"[dim]{line}[/dim]")
         elif line.startswith("@@"):
@@ -150,8 +154,6 @@ _STATUS_ICONS = {
 
 
 def print_plan(steps: list):
-    """Agent rejasini jadval ko'rinishida chiqaradi."""
-
     if not steps:
         return
 
@@ -169,8 +171,6 @@ def print_plan(steps: list):
 
 
 def print_key_value(rows: list[tuple[str, str]], title: str = ""):
-    """Oddiy kalit-qiymat jadvali (masalan /status uchun)."""
-
     table = Table(title=title or None, border_style="cyan", show_header=False)
     table.add_column("Key", style="cyan", no_wrap=True)
     table.add_column("Value")

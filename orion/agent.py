@@ -1,10 +1,7 @@
-"""Agent mode — ko'p qadamli reja tuzish va bajarish.
+"""Agent mode: multi-step plans.
 
-`Plan` oddiy konteyner: joriy sessiyadagi agent rejasini saqlaydi.
-`PlanTool` esa modelga rejani yaratish/yangilash imkonini beradi. Model
-murakkab topshiriqni bajarishdan oldin `plan` tool'ini chaqirib qadamlar
-ro'yxatini yozadi, so'ng har qadam tugagach yana chaqirib holatni
-yangilaydi. UI bu rejani jadval ko'rinishida ko'rsatadi.
+``Plan`` holds the current plan; ``PlanTool`` lets the model create and
+update it step by step. The UI renders it as a table.
 """
 
 from orion.tools import Tool
