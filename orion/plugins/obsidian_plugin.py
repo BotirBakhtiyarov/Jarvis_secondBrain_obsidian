@@ -1,9 +1,9 @@
-from orion.obsidian import Vault
+from orion.obsidian import Vault, open_vault
 from orion.tools import Tool
 
 
 def register(registry, config):
-    vault = Vault(config.obsidian_vault)
+    vault = open_vault(config)
     registry.register(SearchNotesTool(vault))
     registry.register(ReadNoteTool(vault))
     registry.register(CreateNoteTool(vault))

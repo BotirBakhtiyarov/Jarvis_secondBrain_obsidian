@@ -1,14 +1,14 @@
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from orion.obsidian import Vault
+from orion.obsidian import Vault, open_vault
 from orion.tools import Tool
 
 _INVALID_CHARS = set('/\\:*?"<>|')
 
 
 def register(registry, config):
-    vault = Vault(config.obsidian_vault)
+    vault = open_vault(config)
     registry.register(SaveMemoryTool(vault))
     registry.register(DailyNoteTool(vault))
     registry.register(TriageInboxTool(vault))

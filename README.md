@@ -158,6 +158,10 @@ All configuration comes from `.env` (project-local) or `~/.orion/.env`
 | `ORION_MODEL` / `ORION_BASE_URL` | no | provider default | Model / base URL override for any provider |
 | `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | no | — | Legacy overrides (deepseek only) |
 | `OBSIDIAN_VAULT` | **yes** | — | Path to your Obsidian vault |
+| `OBSIDIAN_TRANSPORT` | no | `file` | `file` (direct disk) \| `rest` (Local REST API, with file fallback) |
+| `OBSIDIAN_API_URL` | no | `https://127.0.0.1:27124` | Local REST API base URL |
+| `OBSIDIAN_API_KEY` | for `rest` | — | API key from the Local REST API plugin |
+| `OBSIDIAN_API_VERIFY` | no | `0` | Verify the plugin's TLS certificate (`1` = verify) |
 | `WORKSPACE` | no | current directory | Root for file operations |
 | `ORION_LANG` | no | `en` | Interface language: `en`, `uz` or `auto` |
 | `ORION_COLLAPSE` | no | `1` | `1` = collapse long output/thinking (`/show`, `/think` to expand); `0` = show everything |
@@ -199,6 +203,21 @@ Switch live with `/model`:
 
 Cost defaults are approximate and change over time — override them with
 `ORION_INPUT_PRICE` / `ORION_OUTPUT_PRICE` in `.env`.
+
+## Obsidian transport
+
+By default ORION reads and writes your vault directly on disk. To route reads
+and writes through Obsidian's *Local REST API* plugin instead (useful while
+Obsidian is open), install the plugin and set:
+
+```bash
+OBSIDIAN_TRANSPORT=rest
+OBSIDIAN_API_URL=https://127.0.0.1:27124
+OBSIDIAN_API_KEY=<key from the plugin settings>
+```
+
+If the plugin's server is unreachable, ORION transparently falls back to direct
+disk access for that operation — a stopped Obsidian never blocks you.
 
 ## Usage
 
@@ -246,16 +265,18 @@ workspace; `@` with autocomplete lists files.
 orion/
 ├── main.py          # CLI, session loop, slash commands
 ├── config.py        # .env-driven configuration
+├── providers.py     # Model providers (DeepSeek/Claude/OpenAI/Gemini/Ollama)
 ├── tools.py         # Tool base class + ToolRegistry
 ├── prompts.py       # System prompt (memory / coding / agent rules)
 ├── i18n.py          # Multi-language UI strings (English default, auto-detect)
 ├── memory.py        # Session save / resume / list
 ├── obsidian.py      # Vault: notes, search, frontmatter, backlinks
+├── obsidian_transport.py  # Vault transports: file | Local REST API (+fallback)
 ├── workspace.py     # Workspace: sandboxed file operations
 ├── semantic.py      # Optional vector search (fastembed)
 ├── mcp.py           # MCP client manager (clean shutdown)
 ├── ui.py            # Rich rendering helpers + user-message box
-├── agent.py         # Plan + PlanTool (agent mode)
+├── agent.py         # Plan, PlanTool + SubAgent (agent mode)
 └── plugins/         # Auto-loaded tools
     ├── obsidian_plugin.py
     ├── memory_plugin.py
@@ -263,6 +284,8 @@ orion/
     ├── git_plugin.py
     ├── web_plugin.py
     ├── system_plugin.py
+    ├── subagent_plugin.py
+    ├── knowledge_plugin.py
     └── mcp_plugin.py
 ├── tests/           # pytest suite
 ├── docs/            # additional documentation

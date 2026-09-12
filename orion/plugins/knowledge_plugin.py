@@ -44,11 +44,11 @@ class SearchKnowledgeTool(Tool):
         self.config = config
 
     def execute(self, query, limit=10):
-        from orion.obsidian import Vault
+        from orion.obsidian import open_vault
         from orion.semantic import SemanticIndex
 
         limit = max(1, min(int(limit or 10), 30))
-        vault = Vault(self.config.obsidian_vault)
+        vault = open_vault(self.config)
 
         # --- Obsidian notes (keyword + semantic) ---
         note_results = vault.search(query, limit=limit)

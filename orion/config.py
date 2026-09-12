@@ -27,6 +27,10 @@ class Config:
     language: str = "en"
     provider: str = "deepseek"
     tavily_api_key: str = ""
+    obsidian_transport: str = "file"
+    obsidian_api_url: str = ""
+    obsidian_api_key: str = ""
+    obsidian_api_verify: bool = False
     client: object = None
     registry: object = None
 
@@ -94,4 +98,9 @@ def load_config(overrides: dict | None = None) -> Config:
         ),
         provider=provider.name,
         tavily_api_key=os.getenv("TAVILY_API_KEY", "").strip(),
+        obsidian_transport=os.getenv("OBSIDIAN_TRANSPORT", "file").strip().lower() or "file",
+        obsidian_api_url=os.getenv("OBSIDIAN_API_URL", "").strip(),
+        obsidian_api_key=os.getenv("OBSIDIAN_API_KEY", "").strip(),
+        obsidian_api_verify=os.getenv("OBSIDIAN_API_VERIFY", "").strip().lower()
+        in ("1", "true", "yes", "on"),
     )

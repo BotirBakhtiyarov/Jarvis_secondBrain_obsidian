@@ -26,7 +26,7 @@ from orion.memory import (
     load_session,
     save_session,
 )
-from orion.obsidian import Vault
+from orion.obsidian import open_vault
 from orion.plugins import load_plugins
 from orion.prompts import SYSTEM_PROMPT
 from orion.providers import PROVIDERS, get_provider, resolve_api_key
@@ -602,7 +602,7 @@ def cmd_status(ctx):
 
 def cmd_memory(ctx):
     c = ctx["config"]
-    vault = Vault(c.obsidian_vault)
+    vault = open_vault(c)
     res = vault.list_notes(limit=15)
     if "error" in res:
         console.print(f"[red]{res['error']}[/red]")
@@ -919,7 +919,7 @@ def auto_memory(client, config, session, messages):
 
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     note_path = f"Sessions/{stamp}.md"
-    vault = Vault(config.obsidian_vault)
+    vault = open_vault(config)
     body = vault.build_frontmatter(f"Session {stamp}", ["session"])
     body += text.strip() + "\n"
 

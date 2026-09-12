@@ -2,24 +2,25 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from orion.obsidian_transport import IGNORED_DIRS, FileTransport, make_transport
+
 MAX_READ_CHARS = 30000
 MAX_EXCERPT_CHARS = 1500
 
-# Internal vault dirs (index, backups, Obsidian config).
-IGNORED_DIRS = {
-    ".obsidian",
-    ".orion_backups",
-    ".orion_index",
-    ".jarvis_backups",
-    ".jarvis_index",
-}
+__all__ = ["IGNORED_DIRS", "Vault", "open_vault"]
 
 
 class Vault:
-    """All operations on an Obsidian vault (root is injectable for tests)."""
+    """All operations on an Obsidian vault.
 
-    def __init__(self, root: Path):
-        self.root = root.expanduser().resolve()
+    The vault root is injectable for tests, and writes go through a *transport*
+    (local filesystem by default, or the Obsidian Local REST API). See
+    :mod:`orion.obsidian_transport`.
+    """
+
+    def __init__(self, root: Path, transport=None):
+        self.root = Path(root).expanduser().resolve()
+        self.transport = transport or FileTransport(self.root)
 
     # Helpers
 
@@ -31,10 +32,13 @@ class Vault:
             raise ValueError("Invalid note path (outside the vault)")
         return path
 
+    def _rel(self, note: Path | str) -> str:
+        """Vault-relative, forward-slash path for the transport."""
+
+        return Path(note).relative_to(self.root).as_posix()
+
     def get_all_notes(self) -> list[Path]:
-        if not self.root.exists():
-            return []
-        return [p for p in self.root.rglob("*.md") if not (IGNORED_DIRS & set(p.parts))]
+        return [self.root / rel for rel in self.transport.list_markdown()]
 
     def iter_notes(self) -> list[tuple[str, str]]:
         """Return all notes as (path, content) pairs."""
@@ -42,13 +46,13 @@ class Vault:
         out = []
         for note in self.get_all_notes():
             try:
-                out.append((str(note.relative_to(self.root)), self._read(note)))
+                out.append((self._rel(note), self._read(note)))
             except OSError:
                 continue
         return out
 
     def _read(self, note: Path) -> str:
-        return note.read_text(encoding="utf-8", errors="ignore")
+        return self.transport.read(self._rel(note))
 
     def _frontmatter(self, content: str) -> dict:
         """Parse YAML frontmatter simply (no external YAML dependency)."""
@@ -204,7 +208,7 @@ class Vault:
 
             results.append(
                 {
-                    "path": str(note.relative_to(self.root)),
+                    "path": self._rel(note),
                     "score": score,
                     "excerpt": self._best_excerpt(content, query_lower, words),
                 }
@@ -216,11 +220,11 @@ class Vault:
     # CRUD
 
     def read(self, note_path: str) -> dict:
-        path = self.safe_path(note_path)
-        if not path.exists():
+        self.safe_path(note_path)
+        if not self.transport.exists(note_path):
             return {"error": "Note not found", "path": note_path}
 
-        content = self._read(path)
+        content = self.transport.read(note_path)
         truncated = len(content) > MAX_READ_CHARS
         if truncated:
             content = content[:MAX_READ_CHARS]
@@ -232,96 +236,79 @@ class Vault:
         }
 
     def create(self, note_path: str, content: str) -> dict:
-        path = self.safe_path(note_path)
+        self.safe_path(note_path)
 
-        if path.exists():
+        if self.transport.exists(note_path):
             return {
                 "success": False,
                 "error": "Note already exists",
                 "path": note_path,
             }
 
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        self.transport.write(note_path, content)
 
         return {"success": True, "action": "created", "path": note_path}
 
     def update(self, note_path: str, content: str) -> dict:
-        path = self.safe_path(note_path)
+        self.safe_path(note_path)
 
-        if not path.exists():
+        if not self.transport.exists(note_path):
             return {
                 "success": False,
                 "error": "Note not found",
                 "path": note_path,
             }
 
-        backup_dir = self.root / ".orion_backups"
-        backup_dir.mkdir(exist_ok=True)
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = backup_dir / f"{path.stem}_{timestamp}.md"
-
-        old_content = self._read(path)
-        backup_file.write_text(old_content, encoding="utf-8")
-
-        path.write_text(content, encoding="utf-8")
+        backup_rel = f".orion_backups/{Path(note_path).stem}_{timestamp}.md"
+        old_content = self.transport.read(note_path)
+        self.transport.write(backup_rel, old_content)
+        self.transport.write(note_path, content)
 
         return {
             "success": True,
             "action": "updated",
             "path": note_path,
-            "backup": str(backup_file.relative_to(self.root)),
+            "backup": backup_rel,
         }
 
     def append(self, note_path: str, content: str) -> dict:
-        path = self.safe_path(note_path)
+        self.safe_path(note_path)
 
-        if not path.exists():
+        if not self.transport.exists(note_path):
             return {
                 "success": False,
                 "error": "Note not found",
                 "path": note_path,
             }
 
-        with path.open("a", encoding="utf-8") as file:
-            file.write("\n\n")
-            file.write(content)
+        self.transport.append(note_path, "\n\n" + content)
 
         return {"success": True, "action": "appended", "path": note_path}
 
     def move(self, note_path: str, new_path: str) -> dict:
         """Move a note to another folder (Inbox triage)."""
 
-        src = self.safe_path(note_path)
-        if not src.exists():
+        self.safe_path(note_path)
+        self.safe_path(new_path)
+        if not self.transport.exists(note_path):
             return {"success": False, "error": "Note not found", "path": note_path}
 
-        dst = self.safe_path(new_path)
-        if dst.exists():
+        if self.transport.exists(new_path):
             return {
                 "success": False,
                 "error": "Target already exists",
                 "path": new_path,
             }
 
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        src.rename(dst)
+        self.transport.move(note_path, new_path)
         return {"success": True, "action": "moved", "from": note_path, "to": new_path}
 
     def list_notes(self, folder: str = "", limit: int = 500) -> dict:
-        base = self.safe_path(folder) if folder else self.root
+        if folder:
+            self.safe_path(folder)
 
-        if not base.exists():
-            return {"error": "Folder not found", "folder": folder}
-
-        notes = []
-        for note in base.rglob("*.md"):
-            if IGNORED_DIRS & set(note.parts):
-                continue
-            notes.append(str(note.relative_to(self.root)))
-
-        notes.sort()
+        notes = self.transport.list_markdown(folder.rstrip("/"))
         total = len(notes)
 
         return {
@@ -369,13 +356,13 @@ class Vault:
             if not target or target == source_path:
                 continue
             try:
-                tpath = self.safe_path(target)
+                self.safe_path(target)
             except ValueError:
                 continue
-            if not tpath.exists():
+            if not self.transport.exists(target):
                 continue
 
-            content = self._read(tpath)
+            content = self.transport.read(target)
             if link in content:
                 continue
 
@@ -384,7 +371,12 @@ class Vault:
             else:
                 new_content = content.rstrip() + f"\n\n## Backlinks\n- {link}\n"
 
-            tpath.write_text(new_content, encoding="utf-8")
+            self.transport.write(target, new_content)
             added.append(target)
 
         return added
+
+
+def open_vault(config) -> Vault:
+    """Build a :class:`Vault` using the transport from ``config``."""
+    return Vault(config.obsidian_vault, transport=make_transport(config))
