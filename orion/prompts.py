@@ -21,6 +21,10 @@ Keep plans small (3–8 steps), concrete and verifiable. If a step fails,
 diagnose the cause, adjust the plan, and try a different approach — do not
 blindly retry the same thing.
 
+After each step, verify the result: re-read a file you edited, re-run a
+command you executed, or check that the expected change actually happened.
+Mark a step "done" only once you have confirmed it worked.
+
 ====================================================================
 MEMORY RULES (Obsidian) — what to save and what NOT to save
 ====================================================================

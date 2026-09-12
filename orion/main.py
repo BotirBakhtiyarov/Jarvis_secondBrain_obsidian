@@ -327,34 +327,12 @@ def run_turn(client, config, registry, messages, session, interactive=True):
             }
         )
 
-        for tc in tool_calls:
-            name = tc["function"]["name"]
-            try:
-                arguments = json.loads(tc["function"]["arguments"] or "{}")
-            except json.JSONDecodeError:
-                arguments = {}
+        # --- Parallel tool execution ---
+        results = _execute_tools_parallel(
+            tool_calls, registry, session, interactive
+        )
 
-            if interactive:
-                ui.print_tool_call(name, arguments)
-            else:
-                print(f"⏺ {name} {json.dumps(arguments, ensure_ascii=False)}")
-
-            if name in SENSITIVE_TOOLS and interactive and not session.bypass:
-                label = (
-                    arguments.get("command", "")
-                    if name == "run_command"
-                    else json.dumps(arguments, ensure_ascii=False)
-                )
-                if not confirm_command(label, session):
-                    result = {"error": i18n.t("denied")}
-                else:
-                    result = registry.execute(name, arguments)
-            else:
-                result = registry.execute(name, arguments)
-
-            if interactive:
-                ui.print_tool_result(result)
-
+        for tc, result in zip(tool_calls, results, strict=True):
             messages.append(
                 {
                     "role": "tool",
@@ -362,6 +340,66 @@ def run_turn(client, config, registry, messages, session, interactive=True):
                     "content": json.dumps(result, ensure_ascii=False, default=str),
                 }
             )
+
+
+def _execute_tools_parallel(tool_calls, registry, session, interactive):
+    """Execute tool calls, running independent ones in parallel.
+
+    Sensitive tools (run_command, git_commit, ...) always run sequentially
+    and require confirmation. Read-only tools run in parallel via a thread
+    pool for speed.
+    """
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    sensitive = SENSITIVE_TOOLS
+    ordered_results: list[dict | None] = [None] * len(tool_calls)
+
+    def _run_one(idx, name, arguments):
+        if interactive:
+            ui.print_tool_call(name, arguments)
+        else:
+            print(f"⏺ {name} {json.dumps(arguments, ensure_ascii=False)}")
+        if name in sensitive and interactive and not session.bypass:
+            label = (
+                arguments.get("command", "")
+                if name == "run_command"
+                else json.dumps(arguments, ensure_ascii=False)
+            )
+            if not confirm_command(label, session):
+                return idx, {"error": i18n.t("denied")}
+        return idx, registry.execute(name, arguments)
+
+    # First pass: run sensitive tools sequentially, collect parallel candidates.
+    parallel_jobs = []
+    for idx, tc in enumerate(tool_calls):
+        name = tc["function"]["name"]
+        try:
+            arguments = json.loads(tc["function"]["arguments"] or "{}")
+        except json.JSONDecodeError:
+            arguments = {}
+        if name in sensitive:
+            _, result = _run_one(idx, name, arguments)
+            ordered_results[idx] = result
+            if interactive:
+                ui.print_tool_result(result)
+        else:
+            parallel_jobs.append((idx, name, arguments))
+
+    # Second pass: run read-only tools in parallel.
+    if parallel_jobs:
+        with ThreadPoolExecutor(max_workers=min(4, len(parallel_jobs))) as pool:
+            futures = {
+                pool.submit(_run_one, idx, name, arguments): idx
+                for idx, name, arguments in parallel_jobs
+            }
+            for future in as_completed(futures):
+                idx, result = future.result()
+                ordered_results[idx] = result
+                if interactive:
+                    ui.print_tool_result(result)
+
+    return ordered_results
 
 
 # Slash command handlers
@@ -926,6 +964,9 @@ def main(argv=None):
 
     registry = ToolRegistry()
     load_plugins(registry, config)
+
+    config.client = client
+    config.registry = registry
 
     plan = Plan()
     registry.register(PlanTool(plan))

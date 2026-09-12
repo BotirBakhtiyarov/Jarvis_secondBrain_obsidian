@@ -27,6 +27,8 @@ class Config:
     language: str = "en"
     provider: str = "deepseek"
     tavily_api_key: str = ""
+    client: object = None
+    registry: object = None
 
 
 def _first_env(*names: str) -> str:
