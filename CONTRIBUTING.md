@@ -13,7 +13,11 @@ By participating you agree to follow our
 - Improve documentation.
 - Add tests for existing behaviour.
 - Add or improve tools in `orion/plugins/`.
-- Pick up a [good first issue](docs/good-first-issues.md).
+- Pick up a [`good first issue`](https://github.com/BotirBakhtiyarov/orion-second-brain/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+  or [`help wanted`](https://github.com/BotirBakhtiyarov/orion-second-brain/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+  task — [docs/good-first-issues.md](docs/good-first-issues.md) lists each one
+  with its difficulty, steps and the files involved. The label set lives in
+  [`.github/labels.yml`](.github/labels.yml).
 
 ## Development setup
 

@@ -1,0 +1,51 @@
+# Canonical label set for ORION.
+#
+# Apply or update every label without editing this file by hand:
+#
+#   uv run python scripts/sync-labels.py          # requires the gh CLI, logged in
+#
+# Or one at a time:
+#
+#   gh label create "good first issue" --color 7057ff --description "..." --force
+#
+# Keep this file in sync when you introduce a new category.
+
+- name: good first issue
+  color: "7057ff"
+  description: "Small, self-contained task — great for a first contribution"
+
+- name: help wanted
+  color: "008672"
+  description: "Maintainers would welcome help here"
+
+- name: "difficulty: easy"
+  color: "c2e0c6"
+  description: "No deep knowledge of the codebase needed"
+
+- name: "difficulty: medium"
+  color: "fbca04"
+  description: "Some familiarity with the codebase helps"
+
+- name: documentation
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
+
+- name: enhancement
+  color: "a2eeef"
+  description: "New feature or request"
+
+- name: bug
+  color: "d73a4a"
+  description: "Something isn't working"
+
+- name: telegram
+  color: "1d76db"
+  description: "Telegram bot front-end (orion/telegram.py)"
+
+- name: scheduler
+  color: "5319e7"
+  description: "orion schedule and recurring vault tasks"
+
+- name: i18n
+  color: "bfd4f2"
+  description: "Interface translations and language detection"

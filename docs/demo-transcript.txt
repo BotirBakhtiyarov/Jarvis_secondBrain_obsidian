@@ -1,0 +1,33 @@
+# Illustrative preview of ORION's terminal UI — NOT a screen recording.
+# It is a scripted transcript rendered by scripts/make-demo-gif.py, so the GIF
+# can be regenerated deterministically without an API key.
+#
+# Regenerate:  uv run --with pillow python scripts/make-demo-gif.py
+# Real capture: asciinema rec demo.cast   then   agg demo.cast img/demo.gif
+#
+# Lines starting with '#' are ignored by the generator.
+
+$ orion
+  ___  ____  ___ ___  _   _
+ / _ \|  _ \|_ _/ _ \| \ | |
+| | | | |_) || | | | |  \| |
+| |_| |  _ < | | |_| | |\  |
+ \___/|_| \_\___\___/|_| \_|
+
+Model deepseek-chat · Workspace ~/projects/shop
+Type /help for commands · @file to include a file
+
+╭─ You ──────────────────────────────────────────────────────────────────╮
+│ add retry logic with backoff to the payment client, then test it
+╰╯
+
+⏺ read_file  src/payments/client.py
+⏺ edit_file  src/payments/client.py
+⏺ run_command  pytest tests/test_payments.py -q
+  ✓ 12 passed in 0.84s
+⏺ save_memory  Payments client retry policy
+  ✓ Obsidian → Payments/Payments client retry policy.md
+
+Done. The client now retries up to 3 times on timeouts and 5xx
+responses with exponential backoff (0.5s → 1s → 2s); a new test
+covers the retry path.
