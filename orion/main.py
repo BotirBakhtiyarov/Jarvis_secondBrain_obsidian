@@ -43,6 +43,7 @@ SLASH_COMMANDS = [
     "help",
     "clear",
     "model",
+    "goal",
     "cost",
     "status",
     "memory",
@@ -463,6 +464,36 @@ def _split_model_arg(arg: str) -> tuple[str | None, str]:
     return None, arg
 
 
+def cmd_goal(ctx):
+    """Seed a plan from a natural-language goal.
+
+    ``/goal step one; step two; step three`` splits on ``;`` so a multi-step
+    plan can be drafted instantly; the model then refines it with the ``plan``
+    tool as it makes progress.
+    """
+    args = ctx.get("args") or []
+    text = " ".join(args).strip()
+    if not text:
+        console.print(f"[yellow]{i18n.t('goal_empty')}[/yellow]")
+        return
+
+    steps = []
+    for part in re.split(r"\s*;\s*", text):
+        part = part.strip()
+        if not part:
+            continue
+        status = "in_progress" if not steps else "pending"
+        steps.append({"title": part, "status": status})
+
+    if not steps:
+        console.print(f"[yellow]{i18n.t('goal_empty')}[/yellow]")
+        return
+
+    ctx["plan"].update(steps)
+    console.print(f"[green]{i18n.t('goal_seeded', n=len(steps))}[/green]")
+    ui.print_plan(ctx["plan"].steps)
+
+
 def cmd_cost(ctx):
     s = ctx["session"]
     c = ctx["config"]
@@ -731,6 +762,7 @@ COMMAND_HANDLERS = {
     "help": cmd_help,
     "clear": cmd_clear,
     "model": cmd_model,
+    "goal": cmd_goal,
     "cost": cmd_cost,
     "status": cmd_status,
     "memory": cmd_memory,
@@ -923,6 +955,7 @@ def main(argv=None):
         "session": session,
         "messages": messages,
         "completer": completer,
+        "plan": plan,
     }
 
     if initial_query:

@@ -6,7 +6,8 @@ update it step by step. The UI renders it as a table.
 
 from orion.tools import Tool
 
-VALID_STATUSES = ("pending", "in_progress", "done")
+VALID_STATUSES = ("pending", "in_progress", "done", "failed")
+FAILED = "failed"
 
 
 class Plan:
@@ -30,6 +31,19 @@ class Plan:
         self.steps = clean
         return self.steps
 
+    def reset(self) -> None:
+        """Drop every step (starts a new plan)."""
+        self.steps = []
+
+    def mark(self, index: int, status: str) -> str:
+        """Mark a single step by position; raises on bad index/status."""
+        if status not in VALID_STATUSES:
+            raise ValueError(f"status must be one of {VALID_STATUSES}, got {status!r}")
+        if not 0 <= index < len(self.steps):
+            raise IndexError(f"step #{index} out of range (0..{len(self.steps) - 1})")
+        self.steps[index]["status"] = status
+        return status
+
 
 class PlanTool(Tool):
     def __init__(self, plan: Plan):
@@ -40,8 +54,9 @@ class PlanTool(Tool):
                 "multi-step task. Call this BEFORE starting a big task, "
                 "then call it again after each step to mark it done and the "
                 "next one in_progress. Each step has a short title and a "
-                "status: pending, in_progress or done. Keep plans small "
-                "(3-8 steps)."
+                "status: pending, in_progress, done or failed. Mark a step "
+                "failed if it hit an error, then retry and set it done on "
+                "success. Keep plans small (3-8 steps)."
             ),
             parameters={
                 "steps": {
@@ -53,7 +68,7 @@ class PlanTool(Tool):
                             "title": {"type": "string", "description": "Short step title"},
                             "status": {
                                 "type": "string",
-                                "enum": ["pending", "in_progress", "done"],
+                                "enum": list(VALID_STATUSES),
                             },
                         },
                         "required": ["title"],
