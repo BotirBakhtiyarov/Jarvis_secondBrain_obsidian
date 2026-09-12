@@ -232,8 +232,26 @@ orion --workspace /path/to/projects          # point at a different workspace
 orion config --init                          # create .env from .env.example
 orion config edit                            # open .env in $EDITOR
 orion config                                 # show current configuration
+orion schedule                               # list scheduled vault tasks
 orion -v                                     # version
 ```
+
+### Scheduled tasks
+
+ORION has a tiny built-in scheduler for recurring vault chores. There is no
+OS-level daemon — jobs only run while you ask them to (or while `--loop` is up):
+
+```bash
+orion schedule tasks                          # list available tasks
+orion schedule add morning daily_note 08:00   # add/replace a job
+orion schedule run                            # run whatever is due right now
+orion schedule run --loop                     # keep checking (Ctrl+C to stop)
+orion schedule remove morning                 # delete a job
+```
+
+Jobs live in `~/.orion/schedule.json`. Built-in tasks are deterministic vault
+operations (no model calls, no API key): `daily_note` creates today's note,
+`vault_tidy` reports Inbox leftovers.
 
 ### In-session slash commands
 
@@ -275,6 +293,7 @@ orion/
 ├── workspace.py     # Workspace: sandboxed file operations
 ├── semantic.py      # Optional vector search (fastembed)
 ├── mcp.py           # MCP client manager (clean shutdown)
+├── scheduler.py     # Local scheduler for recurring vault tasks
 ├── ui.py            # Rich rendering helpers + user-message box
 ├── agent.py         # Plan, PlanTool + SubAgent (agent mode)
 └── plugins/         # Auto-loaded tools

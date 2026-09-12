@@ -178,12 +178,17 @@ def parse_args(argv):
     command = None
     config_init = False
     config_edit = False
+    schedule_args: list[str] = []
     if argv and argv[0] == "config":
         command = "config"
         argv = argv[1:]
         config_init = "--init" in argv
         config_edit = "--edit" in argv
         argv = [a for a in argv if a not in ("--init", "--edit")]
+    elif argv and argv[0] == "schedule":
+        command = "schedule"
+        schedule_args = argv[1:]
+        argv = []
 
     parser = argparse.ArgumentParser(
         prog="orion",
@@ -228,6 +233,7 @@ def parse_args(argv):
     args.command = command
     args.config_init = config_init
     args.config_edit = config_edit
+    args.schedule_args = schedule_args
     return args
 
 
@@ -832,6 +838,96 @@ def cmd_config(ctx):
         show_config_table(ctx["config"])
 
 
+def run_schedule_command(args):
+    """`orion schedule ...` — list, add, remove or run recurring vault tasks."""
+    from rich.table import Table
+
+    from orion import scheduler
+
+    sub = list(getattr(args, "schedule_args", []) or [])
+    action = sub[0] if sub else "list"
+    rest = sub[1:]
+    jobs = scheduler.load_jobs()
+
+    if action in ("list", "ls"):
+        if not jobs:
+            console.print(f"[dim]{i18n.t('schedule_empty')}[/dim]")
+            return
+        table = Table(title=i18n.t("schedule_title"), border_style="cyan")
+        table.add_column("Name", style="green", no_wrap=True)
+        table.add_column("Task")
+        table.add_column("At", justify="right")
+        table.add_column("State")
+        for job in jobs:
+            state = i18n.t("schedule_enabled") if job.enabled else i18n.t("schedule_disabled")
+            table.add_row(job.name, job.task, job.at, state)
+        console.print(table)
+        return
+
+    if action == "tasks":
+        for name, desc in scheduler.TASK_DESCRIPTIONS.items():
+            console.print(f"  [cyan]{name}[/cyan]  [dim]{desc}[/dim]")
+        return
+
+    if action == "add":
+        if len(rest) < 3:
+            console.print(f"[yellow]{i18n.t('schedule_usage_add')}[/yellow]")
+            return
+        name, task, at = rest[0], rest[1], rest[2]
+        if task not in scheduler.TASKS:
+            console.print(
+                f"[red]{i18n.t('schedule_unknown_task', task=task, tasks=', '.join(scheduler.TASKS))}[/red]"
+            )
+            return
+        jobs = [j for j in jobs if j.name != name]
+        jobs.append(scheduler.Job(name=name, task=task, at=at))
+        scheduler.save_jobs(jobs)
+        console.print(f"[green]{i18n.t('schedule_added', name=name, task=task, at=at)}[/green]")
+        return
+
+    if action == "remove":
+        if not rest:
+            console.print(f"[yellow]{i18n.t('schedule_usage_remove')}[/yellow]")
+            return
+        name = rest[0]
+        kept = [j for j in jobs if j.name != name]
+        if len(kept) == len(jobs):
+            console.print(f"[yellow]{i18n.t('schedule_not_found', name=name)}[/yellow]")
+            return
+        scheduler.save_jobs(kept)
+        console.print(f"[green]{i18n.t('schedule_removed', name=name)}[/green]")
+        return
+
+    if action == "run":
+        try:
+            config = load_config({"vault": args.vault, "workspace": args.workspace})
+        except ValueError as err:
+            console.print(f"[red]{i18n.t('error_prefix', msg=err)}[/red]")
+            return
+        vault = open_vault(config)
+        if "--loop" in rest:
+            console.print(f"[dim]{i18n.t('schedule_looping')}[/dim]")
+            try:
+                scheduler.loop(
+                    jobs,
+                    vault,
+                    on_run=lambda n, r: console.print(f"[green]✓ {n}[/green] [dim]{r}[/dim]"),
+                )
+            except KeyboardInterrupt:
+                console.print(f"[dim]{i18n.t('interrupted')}[/dim]")
+            return
+        ran = scheduler.run_due(jobs, vault)
+        scheduler.save_jobs(jobs)
+        if not ran:
+            console.print(f"[dim]{i18n.t('schedule_none_due')}[/dim]")
+            return
+        for name, result in ran:
+            console.print(f"[green]✓ {name}[/green] [dim]{result}[/dim]")
+        return
+
+    console.print(f"[yellow]{i18n.t('schedule_unknown_action', action=action)}[/yellow]")
+
+
 COMMAND_HANDLERS = {
     "help": cmd_help,
     "clear": cmd_clear,
@@ -938,6 +1034,10 @@ def main(argv=None):
 
     if args.command == "config":
         run_config_command(args)
+        return
+
+    if args.command == "schedule":
+        run_schedule_command(args)
         return
 
     try:
