@@ -36,9 +36,9 @@ reads like a real tool, not a toy.
   executes steps one by one, and shows progress in the terminal.
   Start a goal with `/goal <description>` and ORION seeds a plan and works
   toward it; use `/plan` to inspect or advance steps manually.
-- **Multi‑language** — English interface by default; switch to Uzbek with
-  `ORION_LANG=uz`, or use `ORION_LANG=auto` and ORION follows the language you
-  write in. The assistant always replies in your language.
+- **Multi‑language** — English interface by default; switch to Uzbek, Russian
+  or Turkish with `ORION_LANG`, or use `ORION_LANG=auto` and ORION follows the
+  language you write in. The assistant always replies in your language.
 - **Terminal UI** — you type directly inside a green input box, answers stream
   as rendered Markdown (no raw `##`/`**` noise), and model thinking plus long
   tool output collapse to one-line summaries you can expand with `/think` and
@@ -77,11 +77,13 @@ ORION's interface is **English by default** and can be switched in two ways:
 ```bash
 ORION_LANG=en    # English (default)
 ORION_LANG=uz    # Uzbek UI (menus, help, prompts)
+ORION_LANG=ru    # Russian UI
+ORION_LANG=tr    # Turkish UI
 ORION_LANG=auto  # follow the language you write in
 ```
 
 - **`auto` mode** detects the language of each message you send (English,
-  Uzbek or Russian) and switches the UI to match.
+  Uzbek, Russian or Turkish) and switches the UI to match.
 - **Replies always follow you**: the system prompt instructs the model to
   answer in the language you write in, regardless of the interface language —
   so you can keep a Uzbek UI while the assistant answers in English, or vice
@@ -165,7 +167,7 @@ All configuration comes from `.env` (project-local) or `~/.orion/.env`
 | `TELEGRAM_BOT_TOKEN` | for `telegram` | — | Bot token from @BotFather |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | no | — | Comma-separated chat IDs allowed to use the bot |
 | `WORKSPACE` | no | current directory | Root for file operations |
-| `ORION_LANG` | no | `en` | Interface language: `en`, `uz` or `auto` |
+| `ORION_LANG` | no | `en` | Interface language: `en`, `uz`, `ru`, `tr` or `auto` |
 | `ORION_COLLAPSE` | no | `1` | `1` = collapse long output/thinking (`/show`, `/think` to expand); `0` = show everything |
 | `TAVILY_API_KEY` | no | — | Enables Tavily web search; empty → DuckDuckGo |
 | `ORION_HISTORY` | no | `~/.orion/history.json` | Session history location |

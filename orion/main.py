@@ -293,6 +293,11 @@ def expand_mentions(text: str, workspace: Path) -> str:
 # Optional permission-prompt override; the Telegram front-end installs its own.
 _PERMISSION_PROMPT = None
 
+# Accepted confirmation answers (English plus the localized uz/ru/tr forms).
+_YES_WORDS = {"y", "yes", "ha", "да", "д", "e", "evet"}
+_NO_WORDS = {"n", "no", "yo'q", "yoq", "нет", "н", "h", "hayır", "hayir"}
+_ALWAYS_WORDS = {"always", "a", "doim", "всегда", "her zaman", "herzaman"}
+
 
 def confirm_command(label: str, session: Session) -> bool:
     if _PERMISSION_PROMPT is not None:
@@ -300,11 +305,11 @@ def confirm_command(label: str, session: Session) -> bool:
     console.print(f"[yellow]{i18n.t('allow')}[/yellow] [bold]{label}[/bold]")
     while True:
         ans = console.input(f"[dim]  {i18n.t('confirm_hint')} [/dim]").strip().lower()
-        if ans in ("y", "yes"):
+        if ans in _YES_WORDS:
             return True
-        if ans in ("n", "no"):
+        if ans in _NO_WORDS:
             return False
-        if ans in ("always", "a"):
+        if ans in _ALWAYS_WORDS:
             session.bypass = True
             return True
 
@@ -1080,6 +1085,9 @@ def auto_memory(client, config, session, messages):
 
 def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
+
+    # Honour ORION_LANG for commands that run before the config is loaded.
+    i18n.set_language(os.getenv("ORION_LANG", i18n.DEFAULT_LANGUAGE) or i18n.DEFAULT_LANGUAGE)
 
     if args.version:
         print(i18n.t("version", version=VERSION))

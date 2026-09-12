@@ -1,9 +1,8 @@
 """Lightweight i18n for ORION's user-facing strings.
 
-Default interface language is **English**. Set ``ORION_LANG`` (e.g. ``uv run
-orion`` reads ``.env`` → ``ORION_LANG=uz``) to switch to another language, or
-use ``ORION_LANG=auto`` to pick the language from the user's latest message
-(``detect_language`` heuristic).
+Default interface language is **English**. Set ``ORION_LANG`` to ``en``, ``uz``,
+``ru`` or ``tr`` (``.env`` is read automatically), or use ``ORION_LANG=auto`` to
+pick the language from the user's latest message (``detect_language`` heuristic).
 
 Only CLI-facing strings are translated. Tool descriptions and the system prompt
 stay in English on purpose — models work better with a single, well-written
@@ -238,6 +237,230 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "telegram_no_token": "TELEGRAM_BOT_TOKEN o'rnatilmagan — bot uchun .env ga qo'shing",
         "telegram_started": "Telegram bot ishlamoqda (to'xtatish: Ctrl+C)…",
     },
+    "ru": {
+        "language": "Язык",
+        "status_title": "Статус",
+        "thinking": "Думаю…",
+        "user_title": "Вы",
+        "allow": "⚡ Разрешить?",
+        "confirm_hint": "(д/н/всегда)",
+        "denied": "Пользователь отклонил разрешение",
+        "error_prefix": "❌ Ошибка: {msg}",
+        "interrupted": "(прервано)",
+        "goodbye": "ORION: До свидания! 👋",
+        "version": "orion {version}",
+        "banner_line": "Модель {model} · Рабочая папка {workspace}",
+        "banner_hint": "Команды — /help · файл — @file",
+        "permission_mode": "Режим разрешений",
+        "perm_bypass": "bypass (без запросов)",
+        "perm_ask": "запрашивать для команд",
+        "help_title": "Слэш-команды",
+        "help.help": "показать эту справку",
+        "help.clear": "очистить контекст диалога",
+        "help.model": "показать или сменить модель/провайдера",
+        "help.goal": "создать план из цели",
+        "help.plan": "просмотр/правка плана (/plan mark <i> <status> | reset)",
+        "help.cost": "токены и стоимость",
+        "help.status": "текущая конфигурация",
+        "help.memory": "последние заметки в Obsidian",
+        "help.compact": "сжать диалог для экономии контекста",
+        "help.add_dir": "сменить рабочую папку",
+        "help.review": "git status/diff в рабочей папке",
+        "help.init": "создать файл инструкций ORION.md",
+        "help.config": "просмотр/правка конфигурации",
+        "help.permissions": "просмотр/смена режима разрешений",
+        "help.resume": "список или продолжение сессий",
+        "help.tools": "список всех инструментов с описанием",
+        "help.exit": "выход",
+        "help.version": "показать версию",
+        "help.hint": "@file — включить содержимое файла. ↑/↓ — история.",
+        "clear_done": "✓ Контекст очищен.",
+        "model_is": "Модель: {model}",
+        "model_set": "✓ Модель: {model}",
+        "provider": "Провайдер",
+        "providers_title": "Доступные провайдеры",
+        "current": "(текущий)",
+        "provider_set": "✓ Провайдер: {name}",
+        "provider_key_missing": "{env} не найден в .env — задайте его для провайдера {provider}",
+        "model_switch_hint": "Переключить: /model <модель> или /model <провайдер>:<модель>",
+        "goal_seeded": "✓ План создан из {n} шаг(ов). Отмечайте шаги выполненными или с ошибкой.",
+        "goal_empty": "Использование: /goal <шаг 1>; <шаг 2>; ...",
+        "local": "локально (бесплатно)",
+        "tokens_line": "Токены: вход {i} · выход {o} · всего {t}",
+        "cost_line": "Стоимость: ${c}",
+        "cost_rates": "(вход ${i}/M · выход ${o}/M)",
+        "recent_notes": "Последние заметки (всего {n}):",
+        "memory_rules": (
+            "Правила памяти: важные факты сохраняются через save_memory; "
+            "обычный чат не сохраняется."
+        ),
+        "nothing_to_compact": "Нечего сжимать.",
+        "compacting": "Сжимаю…",
+        "compacted": "✓ Сжато.",
+        "usage_add_dir": "Использование: /add-dir <путь>",
+        "not_a_directory": "Не папка: {path}",
+        "workspace_set": "✓ Рабочая папка: {path}",
+        "not_git_repo": "Не git-репозиторий: {path}",
+        "git_status": "git status:",
+        "git_clean": "(чисто)",
+        "git_diff_stat": "git diff --stat:",
+        "no_changes": "(без изменений)",
+        "already_exists": "Уже существует: {path}",
+        "created": "✓ Создано {path}",
+        "no_saved_sessions": "Сохранённых сессий нет.",
+        "session_not_found": "Сессия не найдена.",
+        "resumed": "✓ Продолжено.",
+        "saved_sessions": "Сохранённые сессии:",
+        "resume_hint": "Продолжить: /resume <id>",
+        "available_tools": "Доступные инструменты",
+        "config_title": "Конфигурация",
+        "env_exists": ".env уже существует: {path}",
+        "no_env_example": ".env.example не найден для копирования.",
+        "created_from": "✓ Создано {path} (из {name})",
+        "fill_env": "Заполните DEEPSEEK_API_KEY и OBSIDIAN_VAULT.",
+        "env_not_found": ".env не найден. Запустите: orion config --init",
+        "opening_env": "Открываю {path} в {editor}…",
+        "vault_not_set": "OBSIDIAN_VAULT ещё не задан — запустите: orion config --init",
+        "unknown_command": "Неизвестная команда: /{name}. Введите /help",
+        "no_previous": "Предыдущей сессии нет — начинаем заново.",
+        "session_not_found_id": "Сессия '{id}' не найдена.",
+        "session_summary_saved": "🧠 Итог сессии → {path}",
+        "cost_summary": "Токены: {t} · Стоимость: ${c}",
+        "thinking_done": "Размышление ({n} симв.) — /think чтобы посмотреть",
+        "more_lines": "… ещё {n} строк — /show чтобы раскрыть",
+        "nothing_to_show": "Пока нечего раскрывать.",
+        "thinking_title": "Размышление",
+        "help.show": "раскрыть последний свёрнутый вывод (/show)",
+        "help.think": "показать последние рассуждения модели (/think)",
+        "expand_show": "/show чтобы раскрыть",
+        "schedule_empty": "Задач нет. Добавить: orion schedule add <имя> <задача> ЧЧ:ММ",
+        "schedule_title": "Запланированные задачи",
+        "schedule_enabled": "включено",
+        "schedule_disabled": "выключено",
+        "schedule_usage_add": "Использование: orion schedule add <имя> <задача> ЧЧ:ММ",
+        "schedule_usage_remove": "Использование: orion schedule remove <имя>",
+        "schedule_unknown_task": "Неизвестная задача: {task}. Доступные: {tasks}",
+        "schedule_added": "✓ Запланировано '{name}' → {task} в {at}",
+        "schedule_removed": "✓ Удалено '{name}'",
+        "schedule_not_found": "Нет такой задачи: {name}",
+        "schedule_looping": "Планировщик работает (Ctrl+C для остановки)…",
+        "schedule_none_due": "Сейчас нет задач к выполнению.",
+        "schedule_unknown_action": "Неизвестное действие: {action}",
+        "telegram_no_token": "TELEGRAM_BOT_TOKEN не задан — добавьте его в .env для запуска бота",
+        "telegram_started": "Telegram-бот работает (Ctrl+C для остановки)…",
+    },
+    "tr": {
+        "language": "Dil",
+        "status_title": "Durum",
+        "thinking": "Düşünüyorum…",
+        "user_title": "Siz",
+        "allow": "⚡ İzin verilsin mi?",
+        "confirm_hint": "(e/h/her zaman)",
+        "denied": "Kullanıcı izin vermedi",
+        "error_prefix": "❌ Hata: {msg}",
+        "interrupted": "(kesildi)",
+        "goodbye": "ORION: Görüşürüz! 👋",
+        "version": "orion {version}",
+        "banner_line": "Model {model} · Çalışma alanı {workspace}",
+        "banner_hint": "Komutlar için /help · dosya için @file",
+        "permission_mode": "İzin modu",
+        "perm_bypass": "bypass (sormadan)",
+        "perm_ask": "komutlar için sor",
+        "help_title": "Eğik çizgi komutları",
+        "help.help": "bu yardımı göster",
+        "help.clear": "konuşma bağlamını temizle",
+        "help.model": "modeli veya sağlayıcıyı göster/değiştir",
+        "help.goal": "hedeften plan oluştur",
+        "help.plan": "planı görüntüle/düzenle (/plan mark <i> <status> | reset)",
+        "help.cost": "token ve maliyeti göster",
+        "help.status": "mevcut yapılandırmayı göster",
+        "help.memory": "Obsidian belleğindeki son notlar",
+        "help.compact": "bağlamı tasarruf için sohbeti özetle",
+        "help.add_dir": "çalışma klasörünü değiştir",
+        "help.review": "çalışma alanında git status/diff",
+        "help.init": "ORION.md talimat dosyasını oluştur",
+        "help.config": "yapılandırmayı görüntüle/düzenle",
+        "help.permissions": "izin modunu görüntüle/değiştir",
+        "help.resume": "kayıtlı oturumları listele/sürdür",
+        "help.tools": "tüm araçları açıklamalarıyla listele",
+        "help.exit": "çıkış",
+        "help.version": "sürümü göster",
+        "help.hint": "@file — dosya içeriğini ekle. ↑/↓ — geçmiş.",
+        "clear_done": "✓ Bağlam temizlendi.",
+        "model_is": "Model: {model}",
+        "model_set": "✓ Model: {model}",
+        "provider": "Sağlayıcı",
+        "providers_title": "Kullanılabilir sağlayıcılar",
+        "current": "(mevcut)",
+        "provider_set": "✓ Sağlayıcı: {name}",
+        "provider_key_missing": "{env} .env içinde yok — {provider} sağlayıcısı için ayarlayın",
+        "model_switch_hint": "Değiştir: /model <model> veya /model <sağlayıcı>:<model>",
+        "goal_seeded": "✓ Plan {n} adımdan oluşturuldu. Adımları tamam/hatalı işaretleyin.",
+        "goal_empty": "Kullanım: /goal <adım 1>; <adım 2>; ...",
+        "local": "yerel (ücretsiz)",
+        "tokens_line": "Token: giriş {i} · çıkış {o} · toplam {t}",
+        "cost_line": "Maliyet: ${c}",
+        "cost_rates": "(giriş ${i}/M · çıkış ${o}/M)",
+        "recent_notes": "Son notlar (toplam {n}):",
+        "memory_rules": (
+            "Bellek kuralları: önemli bilgiler save_memory ile kaydedilir; "
+            "normal sohbet kaydedilmez."
+        ),
+        "nothing_to_compact": "Özetlenecek bir şey yok.",
+        "compacting": "Özetleniyor…",
+        "compacted": "✓ Özetlendi.",
+        "usage_add_dir": "Kullanım: /add-dir <yol>",
+        "not_a_directory": "Klasör değil: {path}",
+        "workspace_set": "✓ Çalışma alanı: {path}",
+        "not_git_repo": "Git deposu değil: {path}",
+        "git_status": "git status:",
+        "git_clean": "(temiz)",
+        "git_diff_stat": "git diff --stat:",
+        "no_changes": "(değişiklik yok)",
+        "already_exists": "Zaten var: {path}",
+        "created": "✓ Oluşturuldu {path}",
+        "no_saved_sessions": "Kayıtlı oturum yok.",
+        "session_not_found": "Oturum bulunamadı.",
+        "resumed": "✓ Sürdürüldü.",
+        "saved_sessions": "Kayıtlı oturumlar:",
+        "resume_hint": "Sürdür: /resume <id>",
+        "available_tools": "Kullanılabilir araçlar",
+        "config_title": "Yapılandırma",
+        "env_exists": ".env zaten var: {path}",
+        "no_env_example": "Kopyalanacak .env.example bulunamadı.",
+        "created_from": "✓ Oluşturuldu {path} ({name} dosyasından)",
+        "fill_env": "DEEPSEEK_API_KEY ve OBSIDIAN_VAULT alanlarını doldurun.",
+        "env_not_found": ".env bulunamadı. Çalıştırın: orion config --init",
+        "opening_env": "{path} {editor} ile açılıyor…",
+        "vault_not_set": "OBSIDIAN_VAULT henüz ayarlanmadı — çalıştırın: orion config --init",
+        "unknown_command": "Bilinmeyen komut: /{name}. /help yazın",
+        "no_previous": "Önceki oturum yok — yeni başlıyoruz.",
+        "session_not_found_id": "'{id}' oturumu bulunamadı.",
+        "session_summary_saved": "🧠 Oturum özeti → {path}",
+        "cost_summary": "Token: {t} · Maliyet: ${c}",
+        "thinking_done": "Düşünme ({n} karakter) — görmek için /think",
+        "more_lines": "… {n} satır daha — açmak için /show",
+        "nothing_to_show": "Henüz katlanmış çıktı yok.",
+        "thinking_title": "Düşünme",
+        "help.show": "son katlanmış çıktıyı aç (/show)",
+        "help.think": "modelin son düşüncelerini göster (/think)",
+        "expand_show": "açmak için /show",
+        "schedule_empty": "Planlı görev yok. Ekle: orion schedule add <ad> <görev> SS:DD",
+        "schedule_title": "Planlı görevler",
+        "schedule_enabled": "açık",
+        "schedule_disabled": "kapalı",
+        "schedule_usage_add": "Kullanım: orion schedule add <ad> <görev> SS:DD",
+        "schedule_usage_remove": "Kullanım: orion schedule remove <ad>",
+        "schedule_unknown_task": "Bilinmeyen görev: {task}. Mevcut: {tasks}",
+        "schedule_added": "✓ Planlandı '{name}' → {task}, {at}",
+        "schedule_removed": "✓ Kaldırıldı '{name}'",
+        "schedule_not_found": "Böyle bir görev yok: {name}",
+        "schedule_looping": "Planlayıcı çalışıyor (durdurmak için Ctrl+C)…",
+        "schedule_none_due": "Şu an yapılacak görev yok.",
+        "schedule_unknown_action": "Bilinmeyen eylem: {action}",
+        "telegram_no_token": "TELEGRAM_BOT_TOKEN ayarlı değil — bot için .env dosyasına ekleyin",
+        "telegram_started": "Telegram botu çalışıyor (durdurmak için Ctrl+C)…",
+    },
 }
 
 RUSSIAN_CYRILLIC = re.compile(r"[\u0400-\u04FF]")
@@ -245,6 +468,9 @@ RUSSIAN_CYRILLIC = re.compile(r"[\u0400-\u04FF]")
 UZBEK_APOSTROPHE = re.compile(r"""(?i)(?:^|[\s"'(])([oOgG])\s*['ʻ\u2018\u2019]\s*[a-z]""")
 # A few unmistakably-Uzbek words that almost never appear in English text.
 UZBEK_WORDS = re.compile(r"(?i)\b(mana|shunday|bilan|uchun|emas|qilib|yozing|sizning|buni|meni)\b")
+# Turkish-only letters (dotless ı, ş, ğ, ç …) plus a couple of distinctive words.
+TURKISH_CHARS = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
+TURKISH_WORDS = re.compile(r"(?i)\b(merhaba|evet|hayır|lütfen|değil|nasıl|için)\b")
 
 
 def languages() -> list[str]:
@@ -280,18 +506,20 @@ def t(key: str, **fmt) -> str:
 
 
 def detect_language(text: str) -> str | None:
-    """Guess the language of a user message: ``'uz'``, ``'ru'`` or ``'en'``.
+    """Guess the language of a user message: ``'uz'``, ``'ru'``, ``'tr'`` or ``'en'``.
 
-    Heuristic — designed to be *safe* (never misclassifying English as Uzbek
-    if avoidable) rather than perfect. Uzbek and Russian are only detected on
-    strong signals (Cyrillic for Russian, ``o'``/``g'`` apostrophes or common
-    Uzbek particles for Uzbek).
+    Heuristic — designed to be *safe* (never misclassifying English as another
+    language if avoidable) rather than perfect. Russian, Turkish and Uzbek are
+    only detected on strong signals (Cyrillic for Russian, Turkish-only letters
+    for Turkish, ``o'``/``g'`` apostrophes or common particles for Uzbek).
     """
     if not text or not text.strip():
         return None
 
     if RUSSIAN_CYRILLIC.search(text):
         return "ru"
+    if TURKISH_CHARS.search(text) or TURKISH_WORDS.search(text):
+        return "tr"
     if UZBEK_APOSTROPHE.search(text) or UZBEK_WORDS.search(text):
         return "uz"
     return "en"

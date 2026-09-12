@@ -30,15 +30,29 @@ def test_t_formats_with_kwargs():
 
 
 def test_translations_have_identical_keys():
-    i18n.set_language("en")
     en_keys = set(i18n.TRANSLATIONS["en"])
-    uz_keys = set(i18n.TRANSLATIONS["uz"])
-    assert en_keys == uz_keys
+    for lang in ("uz", "ru", "tr"):
+        assert set(i18n.TRANSLATIONS[lang]) == en_keys, f"{lang} keys differ from en"
 
 
 def test_detect_language():
     assert i18n.detect_language("This is a plain English sentence.") == "en"
     assert i18n.detect_language("Привет, как дела?") == "ru"
     assert i18n.detect_language("Men bugun o'quv bilan shug'ullandim.") == "uz"
+    assert i18n.detect_language("Merhaba, nasıl gidiyor?") == "tr"
+    assert i18n.detect_language("bu kod için bir test yaz") == "tr"
     assert i18n.detect_language("") is None
     assert i18n.detect_language("   ") is None
+
+
+def test_russian_and_turkish_translations():
+    i18n.set_language("ru")
+    assert i18n.t("thinking") == "Думаю…"
+    assert i18n.t("user_title") == "Вы"
+    i18n.set_language("tr")
+    assert i18n.t("thinking") == "Düşünüyorum…"
+    assert i18n.t("status_title") == "Durum"
+
+
+def test_supported_languages_are_listed():
+    assert {"en", "uz", "ru", "tr"} <= set(i18n.languages())
