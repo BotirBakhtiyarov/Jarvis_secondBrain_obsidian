@@ -41,6 +41,9 @@ reads like a real tool, not a toy.
   as rendered Markdown (no raw `##`/`**` noise), and model thinking plus long
   tool output collapse to one-line summaries you can expand with `/think` and
   `/show` (see [docs/terminal-ui.md](docs/terminal-ui.md)).
+- **Multi-provider** — DeepSeek, Anthropic Claude, OpenAI, Google Gemini and
+  local Ollama behind one OpenAI-compatible interface; switch live with
+  `/model <provider>:<model>`, with per-provider cost defaults.
 - **Context management** — long chats are automatically trimmed to
   `ORION_MAX_HISTORY` messages (default 50) so you stay inside the model's
   context window without losing recent decisions.
@@ -146,9 +149,12 @@ All configuration comes from `.env` (project-local) or `~/.orion/.env`
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `DEEPSEEK_API_KEY` | **yes** | — | DeepSeek API key |
-| `DEEPSEEK_BASE_URL` | no | `https://api.deepseek.com` | API base URL |
-| `DEEPSEEK_MODEL` | no | `deepseek-chat` | Model: `deepseek-chat` or `deepseek-reasoner` |
+| `ORION_PROVIDER` | no | `deepseek` | `deepseek` \| `anthropic` \| `openai` \| `gemini` \| `ollama` |
+| `DEEPSEEK_API_KEY` | provider | — | DeepSeek API key |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | provider | — | Key for the matching provider |
+| `OLLAMA_API_KEY` | no | `ollama` | Any value; a local Ollama server needs no real key |
+| `ORION_MODEL` / `ORION_BASE_URL` | no | provider default | Model / base URL override for any provider |
+| `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | no | — | Legacy overrides (deepseek only) |
 | `OBSIDIAN_VAULT` | **yes** | — | Path to your Obsidian vault |
 | `WORKSPACE` | no | current directory | Root for file operations |
 | `ORION_LANG` | no | `en` | Interface language: `en`, `uz` or `auto` |
@@ -156,7 +162,42 @@ All configuration comes from `.env` (project-local) or `~/.orion/.env`
 | `TAVILY_API_KEY` | no | — | Enables Tavily web search; empty → DuckDuckGo |
 | `ORION_HISTORY` | no | `~/.orion/history.json` | Session history location |
 | `ORION_MAX_HISTORY` | no | `50` | Max messages kept in context (auto-trim) |
-| `DEEPSEEK_INPUT_PRICE` | no | `0.27` | USD per 1M input tokens (cost estimate) |
+| `ORION_INPUT_PRICE` / `ORION_OUTPUT_PRICE` | no | provider default | USD per 1M tokens (cost estimate) |
+| `DEEPSEEK_INPUT_PRICE` / `DEEPSEEK_OUTPUT_PRICE` | no | `0.27` / `1.10` | Legacy price overrides (deepseek only) |
+
+## Providers
+
+ORION talks to every provider through one OpenAI-compatible client: DeepSeek
+natively, Anthropic and Google Gemini through their official OpenAI
+compatibility layers, and Ollama through its built-in `/v1` server — no extra
+SDKs are installed.
+
+Pick the provider in `.env`:
+
+```bash
+ORION_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+| Provider | Default model | Cost defaults ($/M in/out) |
+|---|---|---|
+| `deepseek` | `deepseek-chat` | 0.27 / 1.10 |
+| `anthropic` | `claude-sonnet-4-5` | 3.00 / 15.00 |
+| `openai` | `gpt-4o-mini` | 0.15 / 0.60 |
+| `gemini` | `gemini-2.0-flash` | 0.10 / 0.40 |
+| `ollama` | `llama3.2` | 0 / 0 (local) |
+
+Switch live with `/model`:
+
+```text
+/model                     # providers table + current model
+/model deepseek-reasoner   # switch model on the current provider
+/model openai:gpt-4o-mini  # switch provider and model (key must be set)
+```
+
+Cost defaults are approximate and change over time — override them with
+`ORION_INPUT_PRICE` / `ORION_OUTPUT_PRICE` in `.env`.
+
 ## Usage
 
 ### CLI
@@ -179,7 +220,7 @@ orion -v                                     # version
 |---|---|
 | `/help` | Show this help |
 | `/clear` | Clear the conversation context |
-| `/model [name]` | Show or switch the model (`deepseek-chat` / `deepseek-reasoner`) |
+| `/model [name\|provider:name]` | Show providers; switch model or provider live |
 | `/cost` | Show tokens and cost so far |
 | `/status` | Show current configuration (incl. language) |
 | `/memory` | Recent notes in Obsidian |
@@ -293,6 +334,10 @@ Planned or desired improvements:
 - **Terminal UI overhaul**: answers stream as rendered Markdown (Rich `Live`),
   model thinking collapses to a one-line summary (`/think` to expand), long
   tool output collapses with a preview (`/show` to expand).
+- **Multi-provider support**: DeepSeek, Anthropic, OpenAI, Google Gemini and
+  Ollama behind one OpenAI-compatible client (`orion/providers.py`);
+  `ORION_PROVIDER` in `.env` and `/model <provider>:<model>` at runtime, with
+  per-provider cost defaults. Legacy `DEEPSEEK_*` variables keep working.
 - **Green input box**: you type directly inside the box — no duplicate echo of
   your message after Enter.
 - `ORION_COLLAPSE=0` disables collapsing for a fully verbose session.

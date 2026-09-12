@@ -4,17 +4,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from orion import providers
+
 # Project .env wins over the global one (load_dotenv never overrides).
 load_dotenv()
 load_dotenv(Path.home() / ".orion" / ".env")
 
-DEFAULT_BASE_URL = "https://api.deepseek.com"
-DEFAULT_MODEL = "deepseek-chat"
 DEFAULT_LANGUAGE = "en"
-
-# USD per 1M tokens (approximate; override via .env)
-DEFAULT_INPUT_PRICE = 0.27
-DEFAULT_OUTPUT_PRICE = 1.10
 
 
 @dataclass
@@ -29,7 +25,24 @@ class Config:
     input_price: float
     output_price: float
     language: str = "en"
+    provider: str = "deepseek"
     tavily_api_key: str = ""
+
+
+def _first_env(*names: str) -> str:
+    for name in names:
+        raw = os.getenv(name, "").strip()
+        if raw:
+            return raw
+    return ""
+
+
+def _price(name: str, legacy: str, fallback: float, provider_name: str) -> float:
+    """Price override: ORION_* for any provider, legacy DEEPSEEK_* kept working."""
+    raw = os.getenv(name, "").strip()
+    if not raw and provider_name == "deepseek":
+        raw = os.getenv(legacy, "").strip()
+    return float(raw) if raw else fallback
 
 
 def load_config(overrides: dict | None = None) -> Config:
@@ -37,7 +50,8 @@ def load_config(overrides: dict | None = None) -> Config:
 
     overrides = overrides or {}
 
-    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    provider = providers.get_provider(os.getenv("ORION_PROVIDER", "deepseek"))
+    api_key = providers.resolve_api_key(provider)
 
     vault_raw = overrides.get("vault") or os.getenv("OBSIDIAN_VAULT", "")
     if not vault_raw:
@@ -46,19 +60,36 @@ def load_config(overrides: dict | None = None) -> Config:
         )
 
     workspace_raw = overrides.get("workspace") or os.getenv("WORKSPACE") or str(Path.cwd())
-
     history_raw = os.getenv("ORION_HISTORY") or str(Path.home() / ".orion" / "history.json")
+
+    # ORION_* overrides any provider; legacy DEEPSEEK_* still work on deepseek.
+    base_url = (
+        _first_env("ORION_BASE_URL")
+        or (_first_env("DEEPSEEK_BASE_URL") if provider.name == "deepseek" else "")
+        or provider.base_url
+    )
+    model = (
+        overrides.get("model")
+        or _first_env("ORION_MODEL")
+        or (_first_env("DEEPSEEK_MODEL") if provider.name == "deepseek" else "")
+        or provider.default_model
+    )
 
     return Config(
         api_key=api_key,
-        base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_BASE_URL),
-        model=overrides.get("model") or os.getenv("DEEPSEEK_MODEL", DEFAULT_MODEL),
+        base_url=base_url,
+        model=model,
         obsidian_vault=Path(vault_raw).expanduser().resolve(),
         workspace=Path(workspace_raw).expanduser().resolve(),
         history_path=Path(history_raw).expanduser().resolve(),
         max_history=int(os.getenv("ORION_MAX_HISTORY", "50")),
         language=(os.getenv("ORION_LANG", DEFAULT_LANGUAGE).strip().lower() or DEFAULT_LANGUAGE),
-        input_price=float(os.getenv("DEEPSEEK_INPUT_PRICE", DEFAULT_INPUT_PRICE)),
-        output_price=float(os.getenv("DEEPSEEK_OUTPUT_PRICE", DEFAULT_OUTPUT_PRICE)),
+        input_price=_price(
+            "ORION_INPUT_PRICE", "DEEPSEEK_INPUT_PRICE", provider.input_price, provider.name
+        ),
+        output_price=_price(
+            "ORION_OUTPUT_PRICE", "DEEPSEEK_OUTPUT_PRICE", provider.output_price, provider.name
+        ),
+        provider=provider.name,
         tavily_api_key=os.getenv("TAVILY_API_KEY", "").strip(),
     )

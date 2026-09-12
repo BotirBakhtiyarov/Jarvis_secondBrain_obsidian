@@ -13,6 +13,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style as PromptStyle
+from rich.table import Table
 
 from orion import i18n, ui
 from orion.agent import Plan, PlanTool
@@ -28,6 +29,7 @@ from orion.memory import (
 from orion.obsidian import Vault
 from orion.plugins import load_plugins
 from orion.prompts import SYSTEM_PROMPT
+from orion.providers import PROVIDERS, get_provider, resolve_api_key
 from orion.tools import ToolRegistry
 from orion.ui import console
 
@@ -403,13 +405,62 @@ def cmd_clear(ctx):
 
 
 def cmd_model(ctx):
+    """Show the provider/model table, or switch model and/or provider.
+
+    ``/model <name>`` switches the model on the current provider;
+    ``/model <provider>:<name>`` switches both (the provider key must be set).
+    """
     args = ctx["args"]
+    config = ctx["config"]
+
     if args:
-        ctx["config"].model = args[0]
-        console.print(f"[green]{i18n.t('model_set', model=ctx['config'].model)}[/green]")
-    else:
-        console.print(f"[cyan]{i18n.t('model_is', model=ctx['config'].model)}[/cyan]")
-        console.print(f"[dim]{i18n.t('models_available')}[/dim]")
+        provider_name, model = _split_model_arg(args[0])
+        if provider_name is not None and provider_name != config.provider:
+            try:
+                prov = get_provider(provider_name)
+            except ValueError as err:
+                console.print(f"[red]{err}[/red]")
+                return
+            key = resolve_api_key(prov)
+            if not key:
+                console.print(
+                    f"[red]{i18n.t('provider_key_missing', env=prov.key_env, provider=prov.name)}[/red]"
+                )
+                return
+            config.provider = prov.name
+            config.base_url = prov.base_url
+            config.api_key = key
+            config.input_price = prov.input_price
+            config.output_price = prov.output_price
+            ctx["client"] = OpenAI(api_key=key, base_url=prov.base_url)
+            console.print(f"[green]{i18n.t('provider_set', name=prov.name)}[/green]")
+        config.model = model
+        console.print(f"[green]{i18n.t('model_set', model=config.model)}[/green]")
+        return
+
+    console.print(f"[cyan]{i18n.t('model_is', model=config.model)}[/cyan]")
+    table = Table(title=i18n.t("providers_title"), border_style="cyan")
+    table.add_column(i18n.t("provider"), style="green", no_wrap=True)
+    table.add_column("Default model")
+    table.add_column("Cost $/M (in/out)")
+    table.add_column("Key")
+    for name, prov in PROVIDERS.items():
+        marker = f" {i18n.t('current')}" if name == config.provider else ""
+        key_state = i18n.t("local") if prov.local else ("set" if resolve_api_key(prov) else "—")
+        table.add_row(
+            name + marker, prov.default_model, f"{prov.input_price}/{prov.output_price}", key_state
+        )
+    console.print(table)
+    console.print(f"[dim]{i18n.t('model_switch_hint')}[/dim]")
+
+
+def _split_model_arg(arg: str) -> tuple[str | None, str]:
+    """Split ``<provider>:<model>``; plain model names return (None, arg)."""
+    if ":" in arg:
+        provider, _, rest = arg.partition(":")
+        if provider.lower() in PROVIDERS:
+            return provider.lower(), rest
+    return None, arg
 
 
 def cmd_cost(ctx):
@@ -431,6 +482,7 @@ def cmd_status(ctx):
     mode = i18n.t("perm_bypass") if ctx["session"].bypass else i18n.t("perm_ask")
     ui.print_key_value(
         [
+            ("Provider", c.provider),
             ("Model", c.model),
             ("Vault", str(c.obsidian_vault)),
             ("Workspace", str(c.workspace)),
@@ -605,6 +657,7 @@ def show_config_table(config):
 
     ui.print_key_value(
         [
+            ("Provider", config.provider),
             ("Model", config.model),
             ("Base URL", config.base_url),
             ("Vault", str(config.obsidian_vault)),
@@ -789,7 +842,10 @@ def main(argv=None):
         raise SystemExit(1) from err
 
     if not config.api_key:
-        console.print("[bold red]❌ DEEPSEEK_API_KEY not found! Check your .env file.[/bold red]")
+        prov = get_provider(config.provider)
+        console.print(
+            f"[bold red]❌ {i18n.t('provider_key_missing', env=prov.key_env, provider=prov.name)}[/bold red]"
+        )
         raise SystemExit(1)
 
     # English by default; ORION_LANG=auto follows the user's language.
@@ -873,7 +929,7 @@ def main(argv=None):
         messages.append({"role": "user", "content": initial_query})
         ui.print_user_box(initial_query)
         try:
-            run_turn(client, config, ctx["registry"], messages, session, interactive=True)
+            run_turn(ctx["client"], config, ctx["registry"], messages, session, interactive=True)
         except Exception as err:  # noqa: BLE001
             console.print(f"\n[red]{i18n.t('error_prefix', msg=err)}[/red]")
         if plan.steps:
@@ -911,7 +967,9 @@ def main(argv=None):
             messages.append({"role": "user", "content": line})
 
             try:
-                run_turn(client, config, ctx["registry"], messages, session, interactive=True)
+                run_turn(
+                    ctx["client"], config, ctx["registry"], messages, session, interactive=True
+                )
             except KeyboardInterrupt:
                 console.print(f"\n[dim]{i18n.t('interrupted')}[/dim]")
                 if messages and messages[-1].get("role") == "user":
