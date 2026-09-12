@@ -5,7 +5,7 @@
 [![CI](https://github.com/BotirBakhtiyarov/orion-second-brain/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BotirBakhtiyarov/orion-second-brain/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.9.0-blue)](https://github.com/BotirBakhtiyarov/orion-second-brain/releases)
+[![Version](https://img.shields.io/badge/version-0.10.0-blue)](https://github.com/BotirBakhtiyarov/orion-second-brain/releases)
 
 ## What is ORION?
 
@@ -37,8 +37,10 @@ reads like a real tool, not a toy.
 - **Multi‑language** — English interface by default; switch to Uzbek with
   `ORION_LANG=uz`, or use `ORION_LANG=auto` and ORION follows the language you
   write in. The assistant always replies in your language.
-- **Distinct UI** — your messages are shown inside a green box, so you can
-  always tell *your input* apart from the streamed AI output.
+- **Terminal UI** — you type directly inside a green input box, answers stream
+  as rendered Markdown (no raw `##`/`**` noise), and model thinking plus long
+  tool output collapse to one-line summaries you can expand with `/think` and
+  `/show` (see [docs/terminal-ui.md](docs/terminal-ui.md)).
 - **Context management** — long chats are automatically trimmed to
   `ORION_MAX_HISTORY` messages (default 50) so you stay inside the model's
   context window without losing recent decisions.
@@ -104,8 +106,10 @@ ORION runs entirely in the terminal. On startup it prints this banner:
  \___/|_| \_\___\___/|_| \_|
 ```
 
-When you type a message it is echoed inside a green box, and ORION's streamed
-reply follows below it — so you always know which text is yours.
+You type directly inside a green input box; the answer streams below it as
+rendered Markdown. Model thinking and long tool output collapse to one-line
+summaries — expand them any time with `/think` and `/show`
+(see [docs/terminal-ui.md](docs/terminal-ui.md)).
 
 ## Quick Start
 
@@ -148,6 +152,7 @@ All configuration comes from `.env` (project-local) or `~/.orion/.env`
 | `OBSIDIAN_VAULT` | **yes** | — | Path to your Obsidian vault |
 | `WORKSPACE` | no | current directory | Root for file operations |
 | `ORION_LANG` | no | `en` | Interface language: `en`, `uz` or `auto` |
+| `ORION_COLLAPSE` | no | `1` | `1` = collapse long output/thinking (`/show`, `/think` to expand); `0` = show everything |
 | `TAVILY_API_KEY` | no | — | Enables Tavily web search; empty → DuckDuckGo |
 | `ORION_HISTORY` | no | `~/.orion/history.json` | Session history location |
 | `ORION_MAX_HISTORY` | no | `50` | Max messages kept in context (auto-trim) |
@@ -185,6 +190,8 @@ orion -v                                     # version
 | `/permissions [on\|bypass]` | Change the permission mode |
 | `/resume [id]` | List or resume saved sessions |
 | `/tools` | List every available tool with a description |
+| `/show` | Expand the last collapsed output (command output, search results…) |
+| `/think` | Show the model's last reasoning in full |
 | `/exit` | Quit (also `q`, `quit`) |
 
 Tips: `@file` anywhere in your prompt includes that file's content from the
@@ -280,6 +287,17 @@ Planned or desired improvements:
 - More interface languages in `orion/i18n.py`.
 
 ## Changelog
+
+### v0.10.0 — 2026-09-12
+
+- **Terminal UI overhaul**: answers stream as rendered Markdown (Rich `Live`),
+  model thinking collapses to a one-line summary (`/think` to expand), long
+  tool output collapses with a preview (`/show` to expand).
+- **Green input box**: you type directly inside the box — no duplicate echo of
+  your message after Enter.
+- `ORION_COLLAPSE=0` disables collapsing for a fully verbose session.
+- System prompt now instructs concise, terminal-friendly Markdown replies.
+- `chat_stream` also collects `reasoning_content` (DeepSeek reasoner models).
 
 ### v0.9.0 — 2026-09-12
 

@@ -12,6 +12,7 @@ from openai import OpenAI
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style as PromptStyle
 
 from orion import i18n, ui
 from orion.agent import Plan, PlanTool
@@ -30,7 +31,7 @@ from orion.prompts import SYSTEM_PROMPT
 from orion.tools import ToolRegistry
 from orion.ui import console
 
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 
@@ -50,6 +51,8 @@ SLASH_COMMANDS = [
     "permissions",
     "resume",
     "tools",
+    "show",
+    "think",
     "config",
     "exit",
     "version",
@@ -283,47 +286,28 @@ def confirm_command(label: str, session: Session) -> bool:
 
 
 def run_turn(client, config, registry, messages, session, interactive=True):
-    while True:
-        first = {"v": True}
-        status = {"obj": None}
-
+    for _ in range(25):
+        view = ui.TurnView(interactive)
         if interactive:
-            status["obj"] = console.status(i18n.t("thinking"), spinner="dots")
-            status["obj"].start()
-
-        def on_text(chunk):
-            if status["obj"] is not None:
-                status["obj"].stop()
-                status["obj"] = None
-            if interactive:
-                if first["v"]:
-                    console.print()
-                    first["v"] = False
-                console.file.write(chunk)
-                console.file.flush()
-            else:
-                if first["v"]:
-                    first["v"] = False
-                sys.stdout.write(chunk)
-                sys.stdout.flush()
+            spinner = console.status(i18n.t("thinking"), spinner="dots")
+            spinner.start()
+            view.attach_spinner(spinner)
 
         try:
-            text, tool_calls, _, usage = chat_stream(
+            text, tool_calls, _, usage, _reasoning = chat_stream(
                 client,
                 config.model,
                 trim_history(messages, config.max_history),
                 registry.schema(),
-                on_text=on_text,
+                on_text=view.text_delta,
+                on_reasoning=view.reasoning_delta,
             )
-        finally:
-            if status["obj"] is not None:
-                status["obj"].stop()
-                status["obj"] = None
+        except BaseException:
+            view.cleanup()
+            raise
 
+        view.end_turn()
         session.add_usage(usage)
-
-        if interactive and first["v"]:
-            console.print()
 
         if not tool_calls:
             messages.append({"role": "assistant", "content": text})
@@ -402,6 +386,8 @@ def cmd_help(ctx):
         ("/permissions [on|bypass]", "help.permissions"),
         ("/resume [id]", "help.resume"),
         ("/tools", "help.tools"),
+        ("/show", "help.show"),
+        ("/think", "help.think"),
         ("/exit", "help.exit"),
         ("/version", "help.version"),
     ]:
@@ -591,6 +577,14 @@ def cmd_version(ctx):
     console.print(i18n.t("version", version=VERSION))
 
 
+def cmd_show(ctx):
+    ui.show_remembered()
+
+
+def cmd_think(ctx):
+    ui.show_thinking()
+
+
 # Config command (slash + `orion config` CLI)
 
 
@@ -694,6 +688,8 @@ COMMAND_HANDLERS = {
     "permissions": cmd_permissions,
     "resume": cmd_resume,
     "tools": cmd_tools,
+    "show": cmd_show,
+    "think": cmd_think,
     "config": cmd_config,
     "version": cmd_version,
 }
@@ -861,6 +857,7 @@ def main(argv=None):
     prompt_session = PromptSession(
         history=FileHistory(str(input_history)),
         completer=completer,
+        style=PromptStyle.from_dict({"box": "ansibrightgreen"}),
     )
 
     ctx = {
@@ -874,7 +871,7 @@ def main(argv=None):
 
     if initial_query:
         messages.append({"role": "user", "content": initial_query})
-        ui.print_user_message(initial_query)
+        ui.print_user_box(initial_query)
         try:
             run_turn(client, config, ctx["registry"], messages, session, interactive=True)
         except Exception as err:  # noqa: BLE001
@@ -884,13 +881,16 @@ def main(argv=None):
 
     try:
         while True:
+            top, prefix, bottom = ui.user_box_parts()
             try:
-                line = prompt_session.prompt("> ").strip()
+                line = prompt_session.prompt([("class:box", top + "\n" + prefix)]).strip()
             except KeyboardInterrupt:
                 console.print()
                 continue
             except EOFError:
+                console.print(f"[green]{bottom}[/green]")
                 break
+            console.print(f"[green]{bottom}[/green]")
 
             if not line:
                 continue
@@ -909,7 +909,6 @@ def main(argv=None):
                     i18n.set_language(detected)
 
             messages.append({"role": "user", "content": line})
-            ui.print_user_message(line)
 
             try:
                 run_turn(client, config, ctx["registry"], messages, session, interactive=True)

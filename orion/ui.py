@@ -1,6 +1,11 @@
 import json
+import os
+import shutil
+import time
 
 from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -29,14 +34,202 @@ def print_banner(version: str):
     console.print()
 
 
-def print_user_message(text: str):
-    """Show the user's message in a green panel, distinct from AI output."""
+# --- User input box --------------------------------------------------------
+
+
+def user_box_parts(width: int | None = None) -> tuple[str, str, str]:
+    """(top border, input prefix, bottom border) of the green input box."""
     label = i18n.t("user_title")
-    console.print(Panel(Text(text), title=label, title_align="left", border_style="green"))
+    if width is None:
+        width = shutil.get_terminal_size().columns - 2
+    width = max(20, min(width, 72))
+    inner = width - 2
+    header = f"─ {label} "
+    top = "╭" + header + "─" * max(1, inner - len(header)) + "╮"
+    prefix = "│ "
+    bottom = "╰" + "─" * inner + "╯"
+    return top, prefix, bottom
+
+
+def print_user_box(text: str) -> None:
+    """Draw the full green box around a user message (e.g. the initial query)."""
+    top, prefix, bottom = user_box_parts()
+    console.print(f"[green]{top}[/green]")
+    for line in text.splitlines() or [""]:
+        console.print(f"[green]{prefix}[/green]{line}")
+    console.print(f"[green]{bottom}[/green]")
+
+
+# --- Collapsed (dropdown-style) output --------------------------------------
+
+
+_REMEMBERED: dict[str, str] = {"label": "", "text": ""}
+_LAST_THINKING = ""
+
+
+def _collapse_enabled() -> bool:
+    return os.environ.get("ORION_COLLAPSE", "1") != "0"
+
+
+def remember(label: str, text: str) -> None:
+    """Store the last collapsed output so ``/show`` can expand it."""
+    _REMEMBERED["label"] = label
+    _REMEMBERED["text"] = text
+
+
+def remember_thinking(text: str) -> None:
+    global _LAST_THINKING
+    _LAST_THINKING = text
+
+
+def show_remembered() -> None:
+    """``/show`` — print the last collapsed output in full."""
+    if not _REMEMBERED["text"]:
+        console.print(f"[dim]{i18n.t('nothing_to_show')}[/dim]")
+        return
+    console.print(
+        Panel(
+            Text(_REMEMBERED["text"]),
+            title=_REMEMBERED["label"] or None,
+            title_align="left",
+            border_style="cyan",
+        )
+    )
+
+
+def show_thinking() -> None:
+    """``/think`` — print the model's last reasoning in full."""
+    if not _LAST_THINKING:
+        console.print(f"[dim]{i18n.t('nothing_to_show')}[/dim]")
+        return
+    console.print(
+        Panel(
+            Text(_LAST_THINKING),
+            title=i18n.t("thinking_title"),
+            title_align="left",
+            border_style="dim",
+        )
+    )
+
+
+def collapsed_preview(label: str, lines: list[str], max_lines: int = 4) -> None:
+    """Print a short preview; the full text stays available via ``/show``."""
+    remember(label, "\n".join(lines))
+    for line in lines[:max_lines]:
+        console.print(f"  {line}", style="dim", markup=False, highlight=False)
+    hidden = len(lines) - max_lines
+    if hidden > 0:
+        console.print(f"  [dim]… {i18n.t('more_lines', n=hidden)}[/dim]")
+
+
+def print_answer(text: str) -> None:
+    """Render a final answer as terminal Markdown (no raw ``##``/``**``)."""
+    if text.strip():
+        console.print(Markdown(text))
+
+
+class TurnView:
+    """Render one model turn.
+
+    - Reasoning streams into a transient counter line and collapses to a
+      one-line summary (full text via ``/think``).
+    - The answer streams as live Markdown and stays rendered afterwards.
+    - Nothing else is printed: long tool output is collapsed elsewhere.
+    """
+
+    def __init__(self, interactive: bool):
+        self.interactive = interactive
+        self._spinner = None
+        self._live: Live | None = None
+        self._kind = ""  # "" | "thinking" | "answer"
+        self._buf: list[str] = []
+        self._thinking: list[str] = []
+        self._chars = 0
+        self._last_update = 0.0
+
+    def attach_spinner(self, spinner) -> None:
+        self._spinner = spinner
+
+    def _drop_spinner(self) -> None:
+        if self._spinner is not None:
+            self._spinner.stop()
+            self._spinner = None
+
+    def _close_live(self) -> None:
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+        self._kind = ""
+
+    def reasoning_delta(self, chunk: str) -> None:
+        if not chunk:
+            return
+        self._drop_spinner()
+        self._thinking.append(chunk)
+        if not self.interactive or not console.is_terminal:
+            return
+        if self._kind != "thinking":
+            self._close_live()
+            self._live = Live(console=console, refresh_per_second=12, transient=True)
+            self._live.start()
+            self._kind = "thinking"
+            self._chars = 0
+        self._chars += len(chunk)
+        self._live.update(Text(f"⏺ {i18n.t('thinking')} {self._chars:,}", style="dim"))
+
+    def text_delta(self, chunk: str) -> None:
+        if not chunk:
+            return
+        self._drop_spinner()
+        self._buf.append(chunk)
+        if self._kind == "thinking":
+            self._finish_thinking()
+        if not self.interactive or not console.is_terminal:
+            return
+        if self._live is None:
+            self._live = Live(console=console, refresh_per_second=10)
+            self._live.start()
+            self._kind = "answer"
+        now = time.monotonic()
+        if now - self._last_update >= 0.08:
+            self._last_update = now
+            self._live.update(Markdown("".join(self._buf)))
+
+    def _finish_thinking(self) -> None:
+        reasoning = "".join(self._thinking)
+        self._thinking = []
+        self._close_live()
+        if reasoning.strip() and self.interactive:
+            remember_thinking(reasoning)
+            console.print(
+                f"[cyan]⏺[/cyan] [dim]{i18n.t('thinking_done', n=format_number(len(reasoning)))}[/dim]"
+            )
+
+    def cleanup(self) -> None:
+        """Stop the spinner/live without printing anything (error paths)."""
+        self._drop_spinner()
+        self._close_live()
+
+    def end_turn(self) -> None:
+        """Finish the stream: collapse thinking, keep the rendered answer."""
+        self._drop_spinner()
+        text = "".join(self._buf)
+        if self._kind == "thinking" or self._thinking:
+            self._finish_thinking()
+        if self._live is not None:
+            self._live.update(Markdown(text))
+            self._live.stop()
+            self._live = None
+            self._kind = ""
+        elif text.strip() and (not self.interactive or not console.is_terminal):
+            print_answer(text)
+        self._buf = []
 
 
 def print_tool_call(name: str, arguments: dict):
     args = json.dumps(arguments, ensure_ascii=False) if arguments else ""
+    if len(args) > 120:
+        args = args[:117] + "…"
     console.print(f"[cyan]⏺[/cyan] [bold]{name}[/bold] [dim]{args}[/dim]")
 
 
@@ -50,14 +243,20 @@ def print_tool_result(result: dict):
         return
 
     if "exit_code" in result:
-        console.print(f"[dim]  exit code: {result['exit_code']}[/dim]")
         stdout = (result.get("stdout") or "").strip()
         stderr = (result.get("stderr") or "").strip()
-        if stdout:
-            for line in stdout.splitlines()[:40]:
-                console.print(f"  {line}", markup=False, highlight=False)
-        if stderr:
-            console.print(f"[yellow]  {stderr}[/yellow]", markup=False, highlight=False)
+        out = "\n".join(part for part in (stdout, stderr) if part)
+        lines = out.splitlines() if out else []
+        console.print(f"[dim]  exit code: {result['exit_code']} · {len(lines)} lines[/dim]")
+        if not lines:
+            return
+        if _collapse_enabled() and len(lines) > 8:
+            collapsed_preview("output", lines)
+            return
+        for line in lines[:40]:
+            console.print(f"  {line}", markup=False, highlight=False)
+        if len(lines) > 40:
+            console.print(f"  [dim]… {i18n.t('more_lines', n=len(lines) - 40)}[/dim]")
         return
 
     if "diff" in result:
@@ -91,27 +290,41 @@ def print_tool_result(result: dict):
         if not results:
             console.print("[dim]  (no results)[/dim]")
             return
+        rendered = []
         for r in results[:10]:
             if "title" in r:
-                console.print(f"  [bold]{r['title']}[/bold]")
-                console.print(f"    [cyan]{r.get('url', '')}[/cyan]")
+                rendered.append(r["title"])
+                rendered.append(f"  {r.get('url', '')}")
                 snippet = (r.get("snippet") or "").replace("\n", " ")
                 if snippet:
-                    console.print(f"    [dim]{snippet[:160]}[/dim]")
+                    rendered.append(f"  {snippet[:160]}")
             else:
-                console.print(f"  [bold]{r['path']}[/bold] [dim](score {r['score']})[/dim]")
+                rendered.append(f"{r['path']} (score {r['score']})")
+        if _collapse_enabled() and len(rendered) > 8:
+            collapsed_preview("results", rendered)
+            return
+        for line in rendered:
+            console.print(f"  {line}")
         return
 
     if "notes" in result and "total" in result:
-        console.print(f"[dim]  {result['total']} notes[/dim]")
-        for n in result["notes"][:20]:
-            console.print(f"  [dim]{n}[/dim]")
+        lines = [f"{result['total']} notes", *(str(n) for n in result["notes"])]
+        if _collapse_enabled() and len(lines) > 8:
+            collapsed_preview("notes", lines)
+            return
+        for line in lines[:20]:
+            console.print(f"  [dim]{line}[/dim]")
         return
 
     if "entries" in result:
-        for e in result["entries"][:40]:
-            kind = "[cyan]dir[/cyan]" if e["type"] == "dir" else "file"
-            console.print(f"  {e['path']}  [{kind}]")
+        lines = [
+            f"{e['path']}  [{'dir' if e['type'] == 'dir' else 'file'}]" for e in result["entries"]
+        ]
+        if _collapse_enabled() and len(lines) > 8:
+            collapsed_preview("files", lines)
+            return
+        for line in lines[:40]:
+            console.print(f"  {line}")
         return
 
     if "content" in result and "path" in result:

@@ -7,8 +7,14 @@ def chat_stream(
     messages: list,
     tools: list | None,
     on_text=None,
+    on_reasoning=None,
 ):
-    """Streamed chat: text chunks go through ``on_text``; returns tool_calls and token usage."""
+    """Streamed chat.
+
+    Text chunks go through ``on_text``; reasoning chunks (``deepseek-reasoner``)
+    through ``on_reasoning``. Returns ``(text, tool_calls, finish_reason,
+    usage, reasoning)``.
+    """
 
     kwargs: dict = {
         "model": model,
@@ -24,6 +30,7 @@ def chat_stream(
     stream = client.chat.completions.create(**kwargs)
 
     text_parts: list[str] = []
+    reasoning_parts: list[str] = []
     tool_calls: dict[int, dict] = {}
     finish_reason = None
     usage = None
@@ -37,6 +44,12 @@ def chat_stream(
 
         choice = chunk.choices[0]
         delta = choice.delta
+
+        reasoning = getattr(delta, "reasoning_content", None) if delta else None
+        if reasoning:
+            reasoning_parts.append(reasoning)
+            if on_reasoning:
+                on_reasoning(reasoning)
 
         if delta and delta.content:
             text_parts.append(delta.content)
@@ -69,7 +82,13 @@ def chat_stream(
         for i in sorted(tool_calls)
     ]
 
-    return "".join(text_parts), final_tool_calls, finish_reason, usage
+    return (
+        "".join(text_parts),
+        final_tool_calls,
+        finish_reason,
+        usage,
+        "".join(reasoning_parts),
+    )
 
 
 def chat_once(client: OpenAI, model: str, messages: list):

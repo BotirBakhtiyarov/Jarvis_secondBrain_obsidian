@@ -94,6 +94,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "session_not_found_id": "Session '{id}' not found.",
         "session_summary_saved": "🧠 Session summary → {path}",
         "cost_summary": "Tokens: {t} · Cost: ${c}",
+        "thinking_done": "Thinking ({n} chars) — /think to view",
+        "more_lines": "… {n} more lines — /show to expand",
+        "nothing_to_show": "Nothing collapsed yet.",
+        "thinking_title": "Thinking",
+        "help.show": "expand the last collapsed output (/show)",
+        "help.think": "show the model's last reasoning (/think)",
     },
     "uz": {
         "language": "Til",
@@ -173,6 +179,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "session_not_found_id": "Sessiya '{id}' topilmadi.",
         "session_summary_saved": "🧠 Sessiya xulosasi → {path}",
         "cost_summary": "Tokenlar: {t} · Xarajat: ${c}",
+        "thinking_done": "O'ylash ({n} belgi) — /think bilan ko'rish",
+        "more_lines": "… yana {n} qator — /show bilan ochish",
+        "nothing_to_show": "Hali yig'ilgan chiqish yo'q.",
+        "thinking_title": "O'ylash",
+        "help.show": "oxirgi yig'ilgan chiqishni ochish (/show)",
+        "help.think": "modelning oxirgi mulohazalarini ko'rish (/think)",
     },
 }
 
