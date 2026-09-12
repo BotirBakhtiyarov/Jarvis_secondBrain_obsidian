@@ -44,6 +44,23 @@ class Plan:
         self.steps[index]["status"] = status
         return status
 
+    # --- (de)serialization for session persistence ---
+    def to_dict(self) -> list[dict]:
+        """Return a JSON-safe copy of the steps."""
+        return [dict(s) for s in self.steps]
+
+    def from_dict(self, data: list[dict]) -> None:
+        """Restore steps from a list of dicts (no validation)."""
+        self.steps = [
+            {
+                "title": str(s.get("title", "")).strip(),
+                "status": s.get("status", "pending")
+                if s.get("status") in VALID_STATUSES
+                else "pending",
+            }
+            for s in data
+        ]
+
 
 class PlanTool(Tool):
     def __init__(self, plan: Plan):

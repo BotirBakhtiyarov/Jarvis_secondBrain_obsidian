@@ -44,6 +44,7 @@ SLASH_COMMANDS = [
     "clear",
     "model",
     "goal",
+    "plan",
     "cost",
     "status",
     "memory",
@@ -494,6 +495,43 @@ def cmd_goal(ctx):
     ui.print_plan(ctx["plan"].steps)
 
 
+def cmd_plan(ctx):
+    """Inspect or edit the current plan.
+
+    * ``/plan``            -- print the plan
+    * ``/plan mark <i> <s>`` -- set step #i to status <s>
+    * ``/plan reset``       -- start a fresh plan
+    """
+    plan: Plan = ctx["plan"]
+    args = (ctx.get("args") or [])[1:]
+
+    if not args:
+        ui.print_plan(plan.steps)
+        return
+
+    sub = args[0]
+    if sub == "reset":
+        plan.reset()
+        console.print("[green]✓ Plan reset.[/green]")
+        return
+
+    if sub == "mark" and len(args) >= 3:
+        try:
+            idx = int(args[1])
+        except ValueError:
+            console.print("[yellow]Usage: /plan mark <index> <status>[/yellow]")
+            return
+        try:
+            plan.mark(idx, args[2])
+        except (ValueError, IndexError) as err:
+            console.print(f"[yellow]{err}[/yellow]")
+            return
+        ui.print_plan(plan.steps)
+        return
+
+    console.print("[yellow]Usage: /plan [-- mark <i> <status> | reset][/yellow]")
+
+
 def cmd_cost(ctx):
     s = ctx["session"]
     c = ctx["config"]
@@ -763,6 +801,7 @@ COMMAND_HANDLERS = {
     "clear": cmd_clear,
     "model": cmd_model,
     "goal": cmd_goal,
+    "plan": cmd_plan,
     "cost": cmd_cost,
     "status": cmd_status,
     "memory": cmd_memory,
