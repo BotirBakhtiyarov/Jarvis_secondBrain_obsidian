@@ -189,6 +189,9 @@ def parse_args(argv):
         command = "schedule"
         schedule_args = argv[1:]
         argv = []
+    elif argv and argv[0] == "telegram":
+        command = "telegram"
+        argv = []
 
     parser = argparse.ArgumentParser(
         prog="orion",
@@ -221,6 +224,11 @@ def parse_args(argv):
         help="show version",
     )
     parser.add_argument("--model", help="override the DeepSeek model")
+    parser.add_argument(
+        "--telegram",
+        action="store_true",
+        help="run as a Telegram bot (long polling) instead of the terminal",
+    )
     parser.add_argument("--vault", help="override the Obsidian vault path")
     parser.add_argument("--workspace", help="override the workspace (projects) root")
     parser.add_argument(
@@ -282,7 +290,13 @@ def expand_mentions(text: str, workspace: Path) -> str:
     return re.sub(r"@([^\s@]+)", repl, text)
 
 
+# Optional permission-prompt override; the Telegram front-end installs its own.
+_PERMISSION_PROMPT = None
+
+
 def confirm_command(label: str, session: Session) -> bool:
+    if _PERMISSION_PROMPT is not None:
+        return bool(_PERMISSION_PROMPT(label, session))
     console.print(f"[yellow]{i18n.t('allow')}[/yellow] [bold]{label}[/bold]")
     while True:
         ans = console.input(f"[dim]  {i18n.t('confirm_hint')} [/dim]").strip().lower()
@@ -323,7 +337,7 @@ def run_turn(client, config, registry, messages, session, interactive=True):
             messages.append({"role": "assistant", "content": text})
             if interactive:
                 console.print()
-            return
+            return text
 
         messages.append(
             {
@@ -364,7 +378,7 @@ def _execute_tools_parallel(tool_calls, registry, session, interactive):
             ui.print_tool_call(name, arguments)
         else:
             print(f"⏺ {name} {json.dumps(arguments, ensure_ascii=False)}")
-        if name in sensitive and interactive and not session.bypass:
+        if name in sensitive and not session.bypass and (interactive or _PERMISSION_PROMPT):
             label = (
                 arguments.get("command", "")
                 if name == "run_command"
@@ -928,6 +942,45 @@ def run_schedule_command(args):
     console.print(f"[yellow]{i18n.t('schedule_unknown_action', action=action)}[/yellow]")
 
 
+def run_telegram(config, client, registry, session):
+    """`orion telegram` — serve the agent over Telegram (long polling)."""
+    from orion import telegram
+
+    if not config.telegram_bot_token:
+        console.print(f"[red]{i18n.t('telegram_no_token')}[/red]")
+        return
+
+    api = telegram.TelegramAPI(config.telegram_bot_token)
+    allowed = telegram.parse_allowed_ids(config.telegram_allowed_chat_ids)
+    histories: dict = {}
+
+    frontend = telegram.TelegramFrontend(api, allowed_ids=allowed)
+
+    def agent(chat_id, text):
+        global _PERMISSION_PROMPT
+        messages = histories.setdefault(
+            chat_id, [{"role": "system", "content": build_system(config)}]
+        )
+        messages.append({"role": "user", "content": expand_mentions(text, config.workspace)})
+
+        def ask(label, sess):
+            return frontend.confirm(chat_id, label, sess)
+
+        previous = _PERMISSION_PROMPT
+        _PERMISSION_PROMPT = ask
+        try:
+            return run_turn(client, config, registry, messages, session, interactive=False) or ""
+        finally:
+            _PERMISSION_PROMPT = previous
+
+    frontend.agent = agent
+    console.print(f"[dim]{i18n.t('telegram_started')}[/dim]")
+    try:
+        frontend.run()
+    except KeyboardInterrupt:
+        console.print(f"[dim]{i18n.t('interrupted')}[/dim]")
+
+
 COMMAND_HANDLERS = {
     "help": cmd_help,
     "clear": cmd_clear,
@@ -1071,6 +1124,10 @@ def main(argv=None):
 
     session = Session(config)
     session.bypass = args.dangerously_skip_permissions
+
+    if getattr(args, "telegram", False) or args.command == "telegram":
+        run_telegram(config, client, registry, session)
+        return
 
     initial_query = " ".join(args.query or []).strip()
 

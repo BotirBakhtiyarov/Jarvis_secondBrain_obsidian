@@ -124,6 +124,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "schedule_looping": "Running the scheduler (Ctrl+C to stop)…",
         "schedule_none_due": "No jobs are due right now.",
         "schedule_unknown_action": "Unknown action: {action}",
+        "telegram_no_token": "TELEGRAM_BOT_TOKEN not set — add it to .env to run the bot",
+        "telegram_started": "Telegram bot is running (Ctrl+C to stop)…",
     },
     "uz": {
         "language": "Til",
@@ -233,6 +235,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "schedule_looping": "Scheduler ishlamoqda (to'xtatish: Ctrl+C)…",
         "schedule_none_due": "Hozir bajariladigan vazifa yo'q.",
         "schedule_unknown_action": "Noma'lum amal: {action}",
+        "telegram_no_token": "TELEGRAM_BOT_TOKEN o'rnatilmagan — bot uchun .env ga qo'shing",
+        "telegram_started": "Telegram bot ishlamoqda (to'xtatish: Ctrl+C)…",
     },
 }
 

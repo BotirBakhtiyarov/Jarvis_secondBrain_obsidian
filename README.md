@@ -162,6 +162,8 @@ All configuration comes from `.env` (project-local) or `~/.orion/.env`
 | `OBSIDIAN_API_URL` | no | `https://127.0.0.1:27124` | Local REST API base URL |
 | `OBSIDIAN_API_KEY` | for `rest` | — | API key from the Local REST API plugin |
 | `OBSIDIAN_API_VERIFY` | no | `0` | Verify the plugin's TLS certificate (`1` = verify) |
+| `TELEGRAM_BOT_TOKEN` | for `telegram` | — | Bot token from @BotFather |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | no | — | Comma-separated chat IDs allowed to use the bot |
 | `WORKSPACE` | no | current directory | Root for file operations |
 | `ORION_LANG` | no | `en` | Interface language: `en`, `uz` or `auto` |
 | `ORION_COLLAPSE` | no | `1` | `1` = collapse long output/thinking (`/show`, `/think` to expand); `0` = show everything |
@@ -233,6 +235,8 @@ orion config --init                          # create .env from .env.example
 orion config edit                            # open .env in $EDITOR
 orion config                                 # show current configuration
 orion schedule                               # list scheduled vault tasks
+orion telegram                               # run as a Telegram bot
+orion --telegram                             # same, as a flag
 orion -v                                     # version
 ```
 
@@ -252,6 +256,25 @@ orion schedule remove morning                 # delete a job
 Jobs live in `~/.orion/schedule.json`. Built-in tasks are deterministic vault
 operations (no model calls, no API key): `daily_note` creates today's note,
 `vault_tidy` reports Inbox leftovers.
+
+### Telegram bot
+
+Chat with ORION from your phone. Create a bot with
+[@BotFather](https://t.me/BotFather), then set:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:ABC...        # from @BotFather
+TELEGRAM_ALLOWED_CHAT_IDS=123456789     # only these chats may use the bot
+```
+
+```bash
+orion telegram        # or: orion --telegram
+```
+
+It long-polls the Telegram Bot API (no extra dependency, no public URL needed).
+Sensitive tools still ask for confirmation — the prompt arrives as an inline
+keyboard (Allow / Deny / Always). Lock the bot to your own chat with
+`TELEGRAM_ALLOWED_CHAT_IDS`; without it, anyone who finds the bot can use it.
 
 ### In-session slash commands
 
@@ -294,6 +317,7 @@ orion/
 ├── semantic.py      # Optional vector search (fastembed)
 ├── mcp.py           # MCP client manager (clean shutdown)
 ├── scheduler.py     # Local scheduler for recurring vault tasks
+├── telegram.py      # Telegram bot front-end (long polling)
 ├── ui.py            # Rich rendering helpers + user-message box
 ├── agent.py         # Plan, PlanTool + SubAgent (agent mode)
 └── plugins/         # Auto-loaded tools

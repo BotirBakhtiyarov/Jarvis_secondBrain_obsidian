@@ -31,6 +31,8 @@ class Config:
     obsidian_api_url: str = ""
     obsidian_api_key: str = ""
     obsidian_api_verify: bool = False
+    telegram_bot_token: str = ""
+    telegram_allowed_chat_ids: str = ""
     client: object = None
     registry: object = None
 
@@ -103,4 +105,6 @@ def load_config(overrides: dict | None = None) -> Config:
         obsidian_api_key=os.getenv("OBSIDIAN_API_KEY", "").strip(),
         obsidian_api_verify=os.getenv("OBSIDIAN_API_VERIFY", "").strip().lower()
         in ("1", "true", "yes", "on"),
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
+        telegram_allowed_chat_ids=os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").strip(),
     )
