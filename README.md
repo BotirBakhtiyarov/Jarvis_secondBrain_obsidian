@@ -143,6 +143,24 @@ pip install -e ".[dev]"      # add extras: `[mcp]` and/or `[semantic]`
 orion
 ```
 
+### Install as a standalone tool
+
+You don't have to clone the repo — install the `orion` command straight from
+Git (requires Python ≥ 3.11):
+
+```bash
+# with uv (recommended)
+uv tool install "orion-second-brain[mcp,semantic] @ git+https://github.com/BotirBakhtiyarov/orion-second-brain"
+
+# or with pipx
+pipx install "orion-second-brain[mcp,semantic] @ git+https://github.com/BotirBakhtiyarov/orion-second-brain"
+```
+
+Drop `[mcp,semantic]` if you don't want those optional features. Either way you
+get an `orion` command on your `PATH`; run `orion config --init` once to create
+`.env`, then `orion`. Upgrade later with `uv tool upgrade orion-second-brain`
+(or `pipx upgrade orion-second-brain`).
+
 You do **not** need a real API key to develop ORION itself — the test suite
 never touches the network (except one explicitly `network`-marked test).
 

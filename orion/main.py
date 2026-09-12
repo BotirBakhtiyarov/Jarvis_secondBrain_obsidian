@@ -33,7 +33,24 @@ from orion.providers import PROVIDERS, get_provider, resolve_api_key
 from orion.tools import ToolRegistry
 from orion.ui import console
 
-VERSION = "0.10.0"
+
+def _detect_version() -> str:
+    """Version from installed metadata, else the source fallback.
+
+    Keeps ``orion --version`` in sync with ``pyproject.toml`` after a release
+    without editing this file, while still working from an uninstalled checkout.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+    except ImportError:  # pragma: no cover
+        return "0.10.0"
+    try:
+        return version("orion-second-brain")
+    except PackageNotFoundError:
+        return "0.10.0"
+
+
+VERSION = _detect_version()
 
 EXIT_COMMANDS = {"exit", "quit", "q", "/exit", "/quit"}
 

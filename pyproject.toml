@@ -4,7 +4,29 @@ version = "0.10.0"
 description = "ORION — Operational Reasoning, Intelligence & Orchestration Network. Personal AI Second Brain + Coding Assistant powered by DeepSeek and Obsidian"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [{ name = "Botir Bakhtiyarov" }]
+keywords = [
+    "ai",
+    "agent",
+    "llm",
+    "obsidian",
+    "second-brain",
+    "deepseek",
+    "cli",
+    "coding-assistant",
+    "mcp",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Utilities",
+]
 
 dependencies = [
     "openai",
@@ -12,6 +34,11 @@ dependencies = [
     "python-dotenv",
     "prompt-toolkit",
 ]
+
+[project.urls]
+Homepage = "https://github.com/BotirBakhtiyarov/orion-second-brain"
+Repository = "https://github.com/BotirBakhtiyarov/orion-second-brain"
+Issues = "https://github.com/BotirBakhtiyarov/orion-second-brain/issues"
 
 [project.optional-dependencies]
 dev = [
