@@ -5,7 +5,7 @@
 [![CI](https://github.com/BotirBakhtiyarov/orion-second-brain/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BotirBakhtiyarov/orion-second-brain/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.10.0-blue)](https://github.com/BotirBakhtiyarov/orion-second-brain/releases)
+[![Version](https://img.shields.io/badge/version-0.11.0-blue)](https://github.com/BotirBakhtiyarov/orion-second-brain/releases)
 
 ## What is ORION?
 
@@ -34,6 +34,8 @@ reads like a real tool, not a toy.
   prompt.
 - **Agent mode** — for multi-step tasks ORION records a plan (the `plan` tool),
   executes steps one by one, and shows progress in the terminal.
+  Start a goal with `/goal <description>` and ORION seeds a plan and works
+  toward it; use `/plan` to inspect or advance steps manually.
 - **Multi‑language** — English interface by default; switch to Uzbek with
   `ORION_LANG=uz`, or use `ORION_LANG=auto` and ORION follows the language you
   write in. The assistant always replies in your language.

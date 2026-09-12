@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from orion.obsidian import Vault
 from orion.tools import Tool
@@ -11,7 +12,7 @@ def register(registry, config):
     registry.register(SaveMemoryTool(vault))
     registry.register(DailyNoteTool(vault))
     registry.register(TriageInboxTool(vault))
-    registry.register(ReindexTool(vault))
+    registry.register(ReindexTool(vault, config.workspace))
 
 
 class SaveMemoryTool(Tool):
@@ -170,18 +171,20 @@ class TriageInboxTool(Tool):
 
 
 class ReindexTool(Tool):
-    def __init__(self, vault: Vault):
+    def __init__(self, vault: Vault, workspace: Path):
         super().__init__(
             name="reindex",
             description=(
-                "Build (or rebuild) the semantic search index over all notes. "
-                "Run this once before semantic search works; afterwards "
-                "`search_notes` blends keyword + semantic results. The first "
-                "run downloads a small embedding model (~90 MB) from "
-                "HuggingFace — later runs use the local cache."
+                "Build (or rebuild) the semantic search index over all notes "
+                "AND workspace code files. Run this once before semantic search "
+                "works; afterwards `search_knowledge` blends keyword + semantic "
+                "results from both notes and code. The first run downloads a "
+                "small embedding model (~90 MB) from HuggingFace — later runs "
+                "use the local cache."
             ),
         )
         self.vault = vault
+        self.workspace = workspace
 
     def execute(self):
         from rich.progress import (

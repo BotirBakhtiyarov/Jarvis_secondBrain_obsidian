@@ -66,9 +66,18 @@ class SemanticIndex:
     def has_index(self) -> bool:
         return self._index_dir() is not None
 
-    def build(self, notes: list[tuple[str, str]], progress=None) -> None:
+    def build(
+        self,
+        notes: list[tuple[str, str]],
+        code_files: list[tuple[str, str]] | None = None,
+        progress=None,
+    ) -> None:
         """Build the index (may download the model on first run).
 
+        *notes* — Obsidian note ``(relative_path, content)`` pairs.
+        *code_files* — optional workspace code ``(relative_path, content)`` pairs
+            to index alongside notes.  When provided, keyword + semantic search
+            covers both code and notes.
         Optional ``progress(done, total)`` callback drives the UI bar.
         """
 
@@ -76,8 +85,13 @@ class SemanticIndex:
         from fastembed import TextEmbedding
 
         model = TextEmbedding(model_name=MODEL_NAME)
-        paths = [p for p, _ in notes]
-        texts = [c[:4000] for _, c in notes]
+
+        combined: list[tuple[str, str]] = list(notes)
+        if code_files:
+            combined.extend(code_files)
+
+        paths = [p for p, _ in combined]
+        texts = [c[:4000] for _, c in combined]
 
         vectors: list = []
         batch_size = 64
