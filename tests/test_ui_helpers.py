@@ -100,15 +100,51 @@ def test_turn_view_reasoning_then_answer():
     assert "/think" in out
 
 
-def test_tool_result_collapses_long_output(monkeypatch):
+def test_tool_result_collapses_long_output():
     long_out = "\n".join(f"log-{i}" for i in range(30))
     with ui.console.capture() as cap:
-        ui.print_tool_result({"exit_code": 0, "stdout": long_out, "stderr": ""})
+        ui.print_tool_result(
+            {"command": "make build", "exit_code": 0, "stdout": long_out, "stderr": ""}
+        )
     out = cap.get()
-    assert "log-0" in out and "log-3" in out
-    assert "log-29" not in out
+    # Collapsed (dropdown) by default: no log lines leak, just a header line.
+    assert "log-0" not in out
+    assert "30 lines" in out
     assert "/show" in out
-    assert ui._REMEMBERED["text"].splitlines()[29] == "log-29"
+    # The full text (command + output) is remembered for /show.
+    assert ui._REMEMBERED["text"].startswith("$ make build")
+    assert ui._REMEMBERED["text"].splitlines()[-1] == "log-29"
+
+
+def test_tool_result_short_output_printed_in_full():
+    out_text = "\n".join(f"log-{i}" for i in range(5))
+    with ui.console.capture() as cap:
+        ui.print_tool_result({"exit_code": 0, "stdout": out_text, "stderr": ""})
+    out = cap.get()
+    assert "log-0" in out and "log-4" in out
+    assert "exit 0" in out
+
+
+def test_tool_result_shows_command_and_output_via_show():
+    long_out = "\n".join(f"log-{i}" for i in range(30))
+    with ui.console.capture() as cap:
+        ui.print_tool_result(
+            {"command": "pytest -q", "exit_code": 1, "stdout": long_out, "stderr": ""}
+        )
+    assert "▸" in cap.get()
+    with ui.console.capture() as cap2:
+        ui.show_remembered()
+    shown = cap2.get()
+    assert "$ pytest -q" in shown
+    assert "log-29" in shown
+
+
+def test_tool_call_renders_run_command_plainly():
+    with ui.console.capture() as cap:
+        ui.print_tool_call("run_command", {"command": "pytest -q"})
+    out = cap.get()
+    assert "run_command" in out and "pytest -q" in out
+    assert '{"command"' not in out  # the command is shown, not raw JSON
 
 
 def test_tool_result_small_output_not_collapsed():

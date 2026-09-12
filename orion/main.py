@@ -328,9 +328,7 @@ def run_turn(client, config, registry, messages, session, interactive=True):
         )
 
         # --- Parallel tool execution ---
-        results = _execute_tools_parallel(
-            tool_calls, registry, session, interactive
-        )
+        results = _execute_tools_parallel(tool_calls, registry, session, interactive)
 
         for tc, result in zip(tool_calls, results, strict=True):
             messages.append(

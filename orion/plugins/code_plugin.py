@@ -144,6 +144,7 @@ class RunCommandTool(Tool):
             return {"error": f"{type(err).__name__}: {err}"}
 
         return {
+            "command": command,
             "exit_code": proc.returncode,
             "stdout": _truncate(proc.stdout),
             "stderr": _truncate(proc.stderr),

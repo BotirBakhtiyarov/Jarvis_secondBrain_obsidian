@@ -110,6 +110,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "thinking_title": "Thinking",
         "help.show": "expand the last collapsed output (/show)",
         "help.think": "show the model's last reasoning (/think)",
+        "expand_show": "/show to expand",
     },
     "uz": {
         "language": "Til",
@@ -205,6 +206,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "thinking_title": "O'ylash",
         "help.show": "oxirgi yig'ilgan chiqishni ochish (/show)",
         "help.think": "modelning oxirgi mulohazalarini ko'rish (/think)",
+        "expand_show": "ochish: /show",
     },
 }
 

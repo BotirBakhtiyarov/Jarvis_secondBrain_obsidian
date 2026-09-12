@@ -65,6 +65,7 @@ def print_user_box(text: str) -> None:
 
 _REMEMBERED: dict[str, str] = {"label": "", "text": ""}
 _LAST_THINKING = ""
+_COLLAPSE_LINES = 12
 
 
 def _collapse_enabled() -> bool:
@@ -119,7 +120,7 @@ def collapsed_preview(label: str, lines: list[str], max_lines: int = 4) -> None:
         console.print(f"  {line}", style="dim", markup=False, highlight=False)
     hidden = len(lines) - max_lines
     if hidden > 0:
-        console.print(f"  [dim]… {i18n.t('more_lines', n=hidden)}[/dim]")
+        console.print(f"  [cyan]▸[/cyan] [dim]{i18n.t('more_lines', n=hidden)}[/dim]")
 
 
 def print_answer(text: str) -> None:
@@ -202,7 +203,7 @@ class TurnView:
         if reasoning.strip() and self.interactive:
             remember_thinking(reasoning)
             console.print(
-                f"[cyan]⏺[/cyan] [dim]{i18n.t('thinking_done', n=format_number(len(reasoning)))}[/dim]"
+                f"[cyan]▸[/cyan] [dim]{i18n.t('thinking_done', n=format_number(len(reasoning)))}[/dim]"
             )
 
     def cleanup(self) -> None:
@@ -227,6 +228,9 @@ class TurnView:
 
 
 def print_tool_call(name: str, arguments: dict):
+    if name == "run_command" and isinstance(arguments, dict) and arguments.get("command"):
+        console.print(f"[cyan]⏺[/cyan] [bold]run_command[/bold] [dim]{arguments['command']}[/dim]")
+        return
     args = json.dumps(arguments, ensure_ascii=False) if arguments else ""
     if len(args) > 120:
         args = args[:117] + "…"
@@ -243,16 +247,21 @@ def print_tool_result(result: dict):
         return
 
     if "exit_code" in result:
+        command = (result.get("command") or "").strip()
         stdout = (result.get("stdout") or "").strip()
         stderr = (result.get("stderr") or "").strip()
         out = "\n".join(part for part in (stdout, stderr) if part)
         lines = out.splitlines() if out else []
-        console.print(f"[dim]  exit code: {result['exit_code']} · {len(lines)} lines[/dim]")
+        header = f"exit {result['exit_code']} · {len(lines)} lines"
         if not lines:
+            console.print(f"[dim]  {header}[/dim]")
             return
-        if _collapse_enabled() and len(lines) > 8:
-            collapsed_preview("output", lines)
+        if _collapse_enabled() and len(lines) > _COLLAPSE_LINES:
+            body = (f"$ {command}\n" if command else "") + out
+            remember("output", body)
+            console.print(f"[cyan]  ▸[/cyan] [dim]{header} — {i18n.t('expand_show')}[/dim]")
             return
+        console.print(f"[dim]  {header}[/dim]")
         for line in lines[:40]:
             console.print(f"  {line}", markup=False, highlight=False)
         if len(lines) > 40:
@@ -363,6 +372,7 @@ _STATUS_ICONS = {
     "done": "[green]✓ done[/green]",
     "in_progress": "[yellow]▶ in progress[/yellow]",
     "pending": "[dim]· pending[/dim]",
+    "failed": "[red]✗ failed[/red]",
 }
 
 

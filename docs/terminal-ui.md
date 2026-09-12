@@ -30,10 +30,16 @@ visible:
 
 | What | Default view | Expand |
 |---|---|---|
-| Model thinking (`deepseek-reasoner`) | `⏺ Thinking (1.3k chars) — /think to view` | `/think` |
-| `run_command` output | exit code + line count + first 4 lines | `/show` |
-| `list_files`, `search_notes`, `web_search` results | first 4 lines | `/show` |
+| Model thinking (`deepseek-reasoner`) | `▸ Thinking (1.3k chars) — /think to view` | `/think` |
+| `run_command` output (long) | `▸ exit 1 · 42 lines — /show to expand` | `/show` |
+| `list_files`, `search_notes`, `web_search` results | first 4 lines + `▸ … N more lines — /show` | `/show` |
 
-`/show` and `/think` print the last collapsed section in full. Set
-`ORION_COLLAPSE=0` to disable collapsing entirely (everything is printed
+`/show` and `/think` print the last collapsed section in full.
+
+Command output is collapsed only when it is long (more than 12 lines) — short
+output is printed in full so you do not need `/show` for the common case. The
+collapsed section remembers the command **and** its output, so `/show` prints
+both.
+
+Set `ORION_COLLAPSE=0` to disable collapsing entirely (everything is printed
 verbosely, capped as before).
