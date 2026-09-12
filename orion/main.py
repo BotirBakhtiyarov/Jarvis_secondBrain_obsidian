@@ -33,6 +33,10 @@ from orion.providers import PROVIDERS, get_provider, resolve_api_key
 from orion.tools import ToolRegistry
 from orion.ui import console
 
+# Used only when running from a checkout that was never installed; keep it in
+# step with pyproject.toml on release.
+_FALLBACK_VERSION = "0.12.0"
+
 
 def _detect_version() -> str:
     """Version from installed metadata, else the source fallback.
@@ -43,11 +47,11 @@ def _detect_version() -> str:
     try:
         from importlib.metadata import PackageNotFoundError, version
     except ImportError:  # pragma: no cover
-        return "0.10.0"
+        return _FALLBACK_VERSION
     try:
         return version("orion-second-brain")
     except PackageNotFoundError:
-        return "0.10.0"
+        return _FALLBACK_VERSION
 
 
 VERSION = _detect_version()

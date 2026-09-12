@@ -1,6 +1,6 @@
 [project]
 name = "orion-second-brain"
-version = "0.10.0"
+version = "0.12.0"
 description = "ORION — Operational Reasoning, Intelligence & Orchestration Network. Personal AI Second Brain + Coding Assistant powered by DeepSeek and Obsidian"
 readme = "README.md"
 license = "MIT"
